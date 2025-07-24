@@ -1,10 +1,9 @@
-import Sidebar from "@/components/admin/Sidebar";
-import Header from "@/components/admin/Header";
 import "./globals.css";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Halora Admin",
-  description: "Admin dashboard for Halora Cosmetics",
+  description: "Admin dashboard for Halora",
 };
 
 export default function RootLayout({
@@ -14,13 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="flex">
-        <Sidebar />
-        <div className="flex-1 flex flex-col">
-          <Header />
-          <main className="p-4">{children}</main>
-        </div>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
