@@ -1,8 +1,5 @@
 "use client";
-
 import { IconCirclePlusFilled, IconMail, type Icon } from "@tabler/icons-react";
-import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 import {
   SidebarGroup,
@@ -14,13 +11,23 @@ import {
 
 export function NavMain({
   items,
+  onSelect,
 }: {
   items: {
     title: string;
     url: string;
     icon?: Icon;
   }[];
+  onSelect?: (title: string) => void;
 }) {
+  const handleClick = (
+    e: React.MouseEvent,
+    item: { title: string; url: string }
+  ) => {
+    e.preventDefault();
+    onSelect?.(item.title);
+  };
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -47,10 +54,10 @@ export function NavMain({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild tooltip={item.title}>
-                <Link href={item.url}>
+                <a href={item.url} onClick={(e) => handleClick(e, item)}>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
-                </Link>
+                </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

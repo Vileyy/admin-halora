@@ -41,7 +41,7 @@ const data = {
   navMain: [
     {
       title: "Quản lý sản phẩm",
-      url: "/dashboard/products",
+      url: "#",
       icon: IconDatabase,
     },
     {
@@ -164,7 +164,18 @@ const data = {
   ],
 };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  onMenuClick,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  onMenuClick?: (view: string) => void;
+}) {
+  const handleNavClick = (title: string) => {
+    if (title === "Quản lý sản phẩm") {
+      onMenuClick?.("products");
+    }
+  };
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -176,14 +187,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="#">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">Doãn Quốc Hiếu</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={data.navMain} onSelect={handleNavClick} />
         <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
