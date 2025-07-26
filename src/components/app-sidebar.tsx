@@ -3,7 +3,7 @@ import * as React from "react";
 import {
   IconCamera,
   IconChartBar,
-  IconDashboard,
+  // IconDashboard,
   IconDatabase,
   IconFileAi,
   IconFileDescription,
@@ -173,6 +173,15 @@ export function AppSidebar({
   const handleNavClick = (title: string) => {
     if (title === "Quản lý sản phẩm") {
       onMenuClick?.("products");
+    }
+    if (title === "Danh mục") {
+      onMenuClick?.("categories");
+    }
+    if (title === "Thương hiệu") {
+      onMenuClick?.("brands");
+    }
+    if (title === "Quản lý đơn hàng") {
+      onMenuClick?.("orders");
     }
   };
 
