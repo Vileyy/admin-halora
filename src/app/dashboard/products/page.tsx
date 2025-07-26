@@ -83,9 +83,7 @@ function ProductForm({
   };
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Chỉ cho nhập số
     let value = e.target.value.replace(/[^\d]/g, "");
-    // Format số theo định dạng Việt Nam
     if (value) {
       value = new Intl.NumberFormat("vi-VN").format(parseInt(value));
     }
@@ -94,7 +92,6 @@ function ProductForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Chuyển giá về số bằng cách bỏ dấu chấm
     const priceNumber = Number(price.replace(/\./g, ""));
     onSubmit({ name, price: priceNumber, category, description, image });
   };
@@ -102,7 +99,7 @@ function ProductForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Tên sản phẩm</Label>
+        <Label style={{ marginBottom: 10 }}>Tên sản phẩm</Label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -110,7 +107,7 @@ function ProductForm({
         />
       </div>
       <div>
-        <Label>Giá</Label>
+        <Label style={{ marginBottom: 10 }}>Giá</Label>
         <Input
           type="text"
           value={price}
@@ -120,7 +117,7 @@ function ProductForm({
         />
       </div>
       <div>
-        <Label>Danh mục</Label>
+        <Label style={{ marginBottom: 10 }}>Danh mục</Label>
         <Select value={category} onValueChange={setCategory} required>
           <SelectTrigger>
             <SelectValue placeholder="Chọn danh mục" />
@@ -135,15 +132,18 @@ function ProductForm({
         </Select>
       </div>
       <div>
-        <Label>Mô tả</Label>
-        <Input
+        <Label style={{ marginBottom: 5 }}>Mô tả</Label>
+        <textarea
+          className="shadcn-textarea w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           required
+          rows={4}
+          placeholder="Nhập mô tả sản phẩm"
         />
       </div>
       <div>
-        <Label>Hình ảnh</Label>
+        <Label style={{ marginBottom: 10 }}>Hình ảnh</Label>
         {image && (
           <img
             src={image}
@@ -165,6 +165,9 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState<string | null>(null);
+  // Thêm state để quản lý dialog xác nhận xóa sản phẩm
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
 
   useEffect(() => {
     const productsRef = ref(database, "products");
@@ -207,12 +210,46 @@ export default function ProductsPage() {
       setLoading(true);
       const productsRef = ref(database, "products");
       await push(productsRef, data);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       setLoading(false);
       setOpen(false);
       toast.success("Thêm sản phẩm thành công!");
     } catch (error) {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi thêm sản phẩm!");
+    }
+  };
+
+  const handleEditProduct = async (
+    productId: string,
+    data: Omit<Product, "id">
+  ) => {
+    try {
+      setLoading(true);
+      await set(ref(database, `products/${productId}`), data);
+
+      // Thêm delay để hiển thị trạng thái loading lâu hơn
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setLoading(false);
+      setEditDialogOpen(null); // Đóng dialog sau khi cập nhật thành công
+      toast.success("Cập nhật sản phẩm thành công!");
+    } catch (error) {
+      setLoading(false);
+      toast.error("Có lỗi xảy ra khi cập nhật!");
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      setLoading(true);
+      await remove(ref(database, `products/${productId}`));
+      setLoading(false);
+      setDeleteDialogOpen(null);
+      toast.success("Xóa sản phẩm thành công!");
+    } catch (error) {
+      setLoading(false);
+      toast.error("Có lỗi xảy ra khi xóa sản phẩm!");
     }
   };
 
@@ -268,9 +305,18 @@ export default function ProductsPage() {
                       {product.description}
                     </p>
                     <div className="flex justify-end gap-2 mt-2">
-                      <Dialog>
+                      <Dialog
+                        open={editDialogOpen === product.id}
+                        onOpenChange={(open) =>
+                          setEditDialogOpen(open ? product.id : null)
+                        }
+                      >
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditDialogOpen(product.id)}
+                          >
                             Sửa
                           </Button>
                         </DialogTrigger>
@@ -280,47 +326,61 @@ export default function ProductsPage() {
                           </DialogHeader>
                           <div className="p-2">
                             <ProductForm
-                              onSubmit={async (data) => {
-                                try {
-                                  setLoading(true);
-                                  await set(
-                                    ref(database, `products/${product.id}`),
-                                    data
-                                  );
-                                  setLoading(false);
-                                  toast.success(
-                                    "Cập nhật sản phẩm thành công!"
-                                  );
-                                } catch (error) {
-                                  setLoading(false);
-                                  toast.error("Có lỗi xảy ra khi cập nhật!");
-                                }
-                              }}
+                              onSubmit={(data) =>
+                                handleEditProduct(product.id, data)
+                              }
                               loading={loading}
                               initialData={product}
                             />
                           </div>
                         </DialogContent>
                       </Dialog>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={async () => {
-                          try {
-                            setLoading(true);
-                            await remove(
-                              ref(database, `products/${product.id}`)
-                            );
-                            setLoading(false);
-                            toast.success("Xóa sản phẩm thành công!");
-                          } catch (error) {
-                            setLoading(false);
-                            toast.error("Có lỗi xảy ra khi xóa sản phẩm!");
-                          }
-                        }}
+                      <Dialog
+                        open={deleteDialogOpen === product.id}
+                        onOpenChange={(open) =>
+                          setDeleteDialogOpen(open ? product.id : null)
+                        }
                       >
-                        Xóa
-                      </Button>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setDeleteDialogOpen(product.id)}
+                          >
+                            Xóa
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md w-full">
+                          <DialogHeader>
+                            <DialogTitle>Xác nhận xóa sản phẩm</DialogTitle>
+                          </DialogHeader>
+                          <div className="p-4">
+                            <p className="mb-4">
+                              Bạn có chắc chắn muốn xóa sản phẩm &quot;
+                              {product.name}&quot; không?
+                            </p>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Hành động này không thể hoàn tác.
+                            </p>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => setDeleteDialogOpen(null)}
+                                disabled={loading}
+                              >
+                                Hủy
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() => handleDeleteProduct(product.id)}
+                                disabled={loading}
+                              >
+                                {loading ? "Đang xóa..." : "Xóa"}
+                              </Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </div>
                 </CardContent>

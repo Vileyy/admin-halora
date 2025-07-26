@@ -18,7 +18,7 @@ export function LoginForm({
 
   const DUMMY_USER = {
     email: "admin@gmail.com",
-    password: "123456",
+    password: "admin123",
   };
 
   const handleSubmit = (e: React.FormEvent) => {
