@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   IconPackage,
@@ -27,6 +28,12 @@ import {
   IconCalendar,
   IconUser,
   IconShoppingCart,
+  IconSearch,
+  IconFilter,
+  IconRefresh,
+  IconDownload,
+  IconEye,
+  IconEyeOff,
 } from "@tabler/icons-react";
 
 interface OrderItem {
@@ -119,10 +126,10 @@ function OrderDetailDialog({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header với thông tin cơ bản */}
-      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl p-8 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-4">
             <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl shadow-sm">
               <IconPackage className="w-6 h-6 text-blue-600" />
@@ -150,10 +157,10 @@ function OrderDetailDialog({
         </div>
       </div>
 
-      {/* Thông tin chi tiết */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Thông tin chi tiết - Layout hàng ngang */}
+      <div className="space-y-6">
         {/* Thông tin đơn hàng */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center space-x-2">
               <IconShoppingCart className="w-5 h-5" />
@@ -161,67 +168,82 @@ function OrderDetailDialog({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <IconCalendar className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Ngày tạo</p>
-                    <p className="text-sm text-gray-600">
-                      {formatDate(order.createdAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <IconCalendar className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Cập nhật lần cuối</p>
-                    <p className="text-sm text-gray-600">
-                      {formatDate(order.updatedAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <IconUser className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Mã khách hàng</p>
-                    <p className="text-sm text-gray-600">
-                      {order.userId.slice(-8)}
-                    </p>
-                  </div>
+            {/* Ngày tạo và Cập nhật lần cuối */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <IconCalendar className="w-5 h-5 text-blue-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Ngày tạo</p>
+                  <p className="text-sm text-gray-600">
+                    {formatDate(order.createdAt)}
+                  </p>
                 </div>
               </div>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <IconCreditCard className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Thanh toán</p>
-                    <p className="text-sm text-gray-600">
-                      {order.paymentMethod === "cod"
-                        ? "Thanh toán khi nhận hàng"
-                        : "Chuyển khoản"}
-                    </p>
-                  </div>
+              <div className="flex items-center space-x-3">
+                <IconCalendar className="w-5 h-5 text-blue-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Cập nhật lần cuối
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {formatDate(order.updatedAt)}
+                  </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <IconTruck className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Vận chuyển</p>
-                    <p className="text-sm text-gray-600">
-                      {order.shippingMethod === "standard"
-                        ? "Tiêu chuẩn"
-                        : "Nhanh"}
-                    </p>
-                  </div>
+              </div>
+            </div>
+
+            {/*Mã khách hàng và Phương thức thanh toán */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <IconUser className="w-5 h-5 text-blue-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Mã khách hàng
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {order.userId.slice(-8)}
+                  </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <IconPackage className="w-4 h-4 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium">Phí vận chuyển</p>
-                    <p className="text-sm text-gray-600">
-                      {formatPrice(order.shippingFee)} VNĐ
-                    </p>
-                  </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <IconCreditCard className="w-5 h-5 text-green-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Phương thức thanh toán
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {order.paymentMethod === "cod"
+                      ? "Thanh toán khi nhận hàng"
+                      : "Chuyển khoản"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/*Vận chuyển và Phí vận chuyển */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <IconTruck className="w-5 h-5 text-purple-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Phương thức vận chuyển
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {order.shippingMethod === "standard"
+                      ? "Tiêu chuẩn"
+                      : "Nhanh"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <IconPackage className="w-5 h-5 text-orange-500" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Phí vận chuyển
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {formatPrice(order.shippingFee)} VNĐ
+                  </p>
                 </div>
               </div>
             </div>
@@ -366,9 +388,22 @@ function OrderDetailDialog({
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateRange, setDateRange] = useState<{
+    start: string;
+    end: string;
+  }>({
+    start: "",
+    end: "",
+  });
 
   useEffect(() => {
     const ordersRef = ref(database, "orders");
@@ -415,6 +450,59 @@ export default function OrdersPage() {
     return () => unsubscribe();
   }, []);
 
+  // Filter orders based on current filters
+  useEffect(() => {
+    let filtered = [...orders];
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((order) => order.status === statusFilter);
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (order) =>
+          order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.orderItems.some((item) =>
+            item.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+      );
+    }
+
+    // Filter by date range
+    if (dateRange.start || dateRange.end) {
+      filtered = filtered.filter((order) => {
+        const orderDate = new Date(order.createdAt);
+        const startDate = dateRange.start ? new Date(dateRange.start) : null;
+        const endDate = dateRange.end ? new Date(dateRange.end) : null;
+
+        if (startDate && endDate) {
+          return orderDate >= startDate && orderDate <= endDate;
+        } else if (startDate) {
+          return orderDate >= startDate;
+        } else if (endDate) {
+          return orderDate <= endDate;
+        }
+        return true;
+      });
+    }
+
+    setFilteredOrders(filtered);
+  }, [orders, statusFilter, searchTerm, dateRange]);
+
+  // Calculate statistics
+  const getStatusCount = (status: string) => {
+    return orders.filter((order) => order.status === status).length;
+  };
+
+  const getTotalRevenue = () => {
+    return orders
+      .filter((order) => order.status === "delivered")
+      .reduce((total, order) => total + order.total, 0);
+  };
+
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
       setLoading(true);
@@ -430,6 +518,12 @@ export default function OrdersPage() {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi cập nhật trạng thái!");
     }
+  };
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setSearchTerm("");
+    setDateRange({ start: "", end: "" });
   };
 
   const getStatusColor = (status: string) => {
@@ -456,16 +550,223 @@ export default function OrdersPage() {
             Theo dõi và quản lý tất cả đơn hàng
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           <div className="text-right">
             <p className="text-sm text-gray-600">Tổng đơn hàng</p>
             <p className="text-2xl font-bold text-blue-600">{orders.length}</p>
           </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-600">Tổng doanh thu</p>
+            <p className="text-2xl font-bold text-green-600">
+              {formatPrice(getTotalRevenue())} VNĐ
+            </p>
+          </div>
         </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-600 font-medium">Chờ xử lý</p>
+                <p className="text-2xl font-bold text-blue-800">
+                  {getStatusCount("pending")}
+                </p>
+              </div>
+              <div className="p-2 bg-blue-200 rounded-lg">
+                <IconPackage className="w-5 h-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-yellow-50 to-yellow-100">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-yellow-600 font-medium">
+                  Đang xử lý
+                </p>
+                <p className="text-2xl font-bold text-yellow-800">
+                  {getStatusCount("processing")}
+                </p>
+              </div>
+              <div className="p-2 bg-yellow-200 rounded-lg">
+                <IconTruck className="w-5 h-5 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-600 font-medium">
+                  Đã gửi hàng
+                </p>
+                <p className="text-2xl font-bold text-purple-800">
+                  {getStatusCount("shipped")}
+                </p>
+              </div>
+              <div className="p-2 bg-purple-200 rounded-lg">
+                <IconTruck className="w-5 h-5 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-green-50 to-green-100">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-600 font-medium">
+                  Đã giao hàng
+                </p>
+                <p className="text-2xl font-bold text-green-800">
+                  {getStatusCount("delivered")}
+                </p>
+              </div>
+              <div className="p-2 bg-green-200 rounded-lg">
+                <IconPackage className="w-5 h-5 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-red-50 to-red-100">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-red-600 font-medium">Đã hủy</p>
+                <p className="text-2xl font-bold text-red-800">
+                  {getStatusCount("cancelled")}
+                </p>
+              </div>
+              <div className="p-2 bg-red-200 rounded-lg">
+                <IconPackage className="w-5 h-5 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters Section */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Bộ lọc</h3>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? (
+                  <IconEyeOff className="w-4 h-4" />
+                ) : (
+                  <IconEye className="w-4 h-4" />
+                )}
+                {showFilters ? "Ẩn bộ lọc" : "Hiện bộ lọc"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <IconRefresh className="w-4 h-4" />
+                Xóa bộ lọc
+              </Button>
+            </div>
+          </div>
+
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Search */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Tìm kiếm
+                </label>
+                <div className="relative">
+                  <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Tìm theo mã đơn hàng, khách hàng..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Trạng thái
+                </label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tất cả trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                    {statusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <span className="mr-2">{option.icon}</span>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Range Start */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Từ ngày
+                </label>
+                <Input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) =>
+                    setDateRange({ ...dateRange, start: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* Date Range End */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Đến ngày
+                </label>
+                <Input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) =>
+                    setDateRange({ ...dateRange, end: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Results Summary */}
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Hiển thị {filteredOrders.length} trong tổng số {orders.length}{" "}
+                đơn hàng
+              </p>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm">
+                  <IconDownload className="w-4 h-4 mr-2" />
+                  Xuất báo cáo
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-4">
-        {orders.map((order) => (
+        {filteredOrders.map((order) => (
           <Card
             key={order.id}
             className="hover:shadow-lg transition-shadow duration-200"
@@ -594,7 +895,7 @@ export default function OrdersPage() {
           </Card>
         ))}
 
-        {orders.length === 0 && (
+        {filteredOrders.length === 0 && (
           <Card>
             <CardContent className="p-12">
               <div className="text-center">
@@ -602,11 +903,24 @@ export default function OrdersPage() {
                   <IconPackage className="w-8 h-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Chưa có đơn hàng nào
+                  {orders.length === 0
+                    ? "Chưa có đơn hàng nào"
+                    : "Không tìm thấy đơn hàng"}
                 </h3>
                 <p className="text-gray-600">
-                  Khi có đơn hàng mới, chúng sẽ xuất hiện ở đây
+                  {orders.length === 0
+                    ? "Khi có đơn hàng mới, chúng sẽ xuất hiện ở đây"
+                    : "Thử điều chỉnh bộ lọc để tìm kiếm đơn hàng khác"}
                 </p>
+                {orders.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={clearFilters}
+                  >
+                    Xóa bộ lọc
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -10,6 +10,7 @@ import ProductsPage from "./products/page";
 import CategoriesPage from "./categories/page";
 import BrandsPage from "./brands/page";
 import OrdersPage from "./orders/page";
+import UsersPage from "./users/page";
 
 import data from "./data.json";
 
@@ -42,6 +43,8 @@ export default function Page() {
               <BrandsPage />
             ) : currentView === "orders" ? (
               <OrdersPage />
+            ) : currentView === "users" ? (
+              <UsersPage />
             ) : (
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
                 <SectionCards />

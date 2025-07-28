@@ -183,6 +183,9 @@ export function AppSidebar({
     if (title === "Quản lý đơn hàng") {
       onMenuClick?.("orders");
     }
+    if (title === "Người dùng") {
+      onMenuClick?.("users");
+    }
   };
 
   return (
