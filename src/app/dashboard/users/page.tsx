@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { database } from "@/lib/firebase";
-import { ref, onValue } from "firebase/database";
+import { ref, onValue, update, remove } from "firebase/database";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +13,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   IconUser,
@@ -20,13 +28,27 @@ import {
   IconPhone,
   IconMapPin,
   IconShoppingCart,
-  IconEye,
-  IconEyeOff,
   IconRefresh,
   IconSearch,
   IconCheck,
   IconX,
+  IconEdit,
+  IconLock,
+  IconTrash,
+  IconChevronRight,
+  IconAlertCircle,
 } from "@tabler/icons-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface UserOrderItem {
   id: string;
@@ -86,6 +108,143 @@ const statusOptions = [
   },
 ];
 
+function EditUserDialog({
+  user,
+  onUpdate,
+}: {
+  user: UserData;
+  onUpdate: (userId: string, data: Partial<UserData>) => void;
+}) {
+  const [formData, setFormData] = useState({
+    displayName: user.displayName || "",
+    email: user.email || "",
+    phone: user.phone || "",
+    address: user.address || "",
+    gender: user.gender || "other",
+    status: user.status || "active",
+  });
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate(user.id, formData);
+    setIsOpen(false);
+    toast.success("Cập nhật thông tin người dùng thành công!");
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="bg-white hover:bg-gray-50"
+        >
+          <IconEdit className="w-4 h-4 mr-2" />
+          Chỉnh sửa
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Chỉnh sửa thông tin người dùng</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="displayName">Tên hiển thị</Label>
+            <Input
+              id="displayName"
+              value={formData.displayName}
+              onChange={(e) =>
+                setFormData({ ...formData, displayName: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="phone">Số điện thoại</Label>
+            <Input
+              id="phone"
+              value={formData.phone}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="address">Địa chỉ</Label>
+            <Input
+              id="address"
+              value={formData.address}
+              onChange={(e) =>
+                setFormData({ ...formData, address: e.target.value })
+              }
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="gender">Giới tính</Label>
+            <Select
+              value={formData.gender}
+              onValueChange={(value) =>
+                setFormData({ ...formData, gender: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Nam</SelectItem>
+                <SelectItem value="female">Nữ</SelectItem>
+                <SelectItem value="other">Khác</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="status">Trạng thái</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) =>
+                setFormData({ ...formData, status: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Đang hoạt động</SelectItem>
+                <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button type="submit">Cập nhật</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function UserDetailDialog({ user }: { user: UserData }) {
   const formatPrice = (price: number | string) => {
     return new Intl.NumberFormat("vi-VN").format(Number(price));
@@ -104,13 +263,16 @@ function UserDetailDialog({ user }: { user: UserData }) {
       <Card>
         <CardHeader className="flex flex-row items-center gap-4 pb-3">
           <img
-            src={user.photoURL}
-            alt={user.displayName}
+            src={user.photoURL || "/default-avatar.png"}
+            alt={user.displayName || "User"}
             className="w-16 h-16 rounded-full object-cover border"
+            onError={(e) => {
+              e.currentTarget.src = "/default-avatar.png";
+            }}
           />
           <div>
             <CardTitle className="text-xl font-bold">
-              {user.displayName}
+              {user.displayName || "Không có tên"}
             </CardTitle>
             <Badge
               className={getStatusColor(user.status) + " border px-3 py-1 ml-2"}
@@ -123,15 +285,15 @@ function UserDetailDialog({ user }: { user: UserData }) {
             </Badge>
             <div className="flex items-center gap-2 mt-2 text-gray-600">
               <IconMail className="w-4 h-4" />
-              <span>{user.email}</span>
+              <span>{user.email || "Không có email"}</span>
             </div>
             <div className="flex items-center gap-2 mt-1 text-gray-600">
               <IconPhone className="w-4 h-4" />
-              <span>{user.phone}</span>
+              <span>{user.phone || "Không có số điện thoại"}</span>
             </div>
             <div className="flex items-center gap-2 mt-1 text-gray-600">
               <IconMapPin className="w-4 h-4" />
-              <span>{user.address}</span>
+              <span>{user.address || "Không có địa chỉ"}</span>
             </div>
           </div>
         </CardHeader>
@@ -160,9 +322,9 @@ function UserDetailDialog({ user }: { user: UserData }) {
                   <p className="text-sm text-gray-600">
                     {formatPrice(item.price)} VNĐ x {item.quantity}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  {/* <p className="text-xs text-gray-400 mt-1">
                     {item.description}
-                  </p>
+                  </p> */}
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900">
@@ -241,7 +403,6 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
@@ -269,13 +430,55 @@ export default function UsersPage() {
     if (searchTerm) {
       filtered = filtered.filter(
         (user) =>
-          user.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.phone.includes(searchTerm)
+          (user.displayName?.toLowerCase() || "").includes(
+            searchTerm.toLowerCase()
+          ) ||
+          (user.email?.toLowerCase() || "").includes(
+            searchTerm.toLowerCase()
+          ) ||
+          (user.phone || "").includes(searchTerm)
       );
     }
     setFilteredUsers(filtered);
   }, [users, searchTerm]);
+
+  const handleUpdateUser = async (userId: string, data: Partial<UserData>) => {
+    try {
+      const userRef = ref(database, `users/${userId}`);
+      await update(userRef, data);
+      toast.success("Cập nhật người dùng thành công!");
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi cập nhật người dùng!");
+    }
+  };
+
+  const handleToggleUserStatus = async (
+    userId: string,
+    currentStatus: string
+  ) => {
+    try {
+      const newStatus = currentStatus === "active" ? "banned" : "active";
+      const userRef = ref(database, `users/${userId}`);
+      await update(userRef, { status: newStatus });
+      toast.success(
+        newStatus === "active"
+          ? "Mở khóa tài khoản thành công!"
+          : "Khóa tài khoản thành công!"
+      );
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi thay đổi trạng thái tài khoản!");
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const userRef = ref(database, `users/${userId}`);
+      await remove(userRef);
+      toast.success("Xóa người dùng thành công!");
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi xóa người dùng!");
+    }
+  };
 
   return (
     <div className="p-6">
@@ -298,48 +501,25 @@ export default function UsersPage() {
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Bộ lọc</h3>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                {showFilters ? (
-                  <IconEyeOff className="w-4 h-4" />
-                ) : (
-                  <IconEye className="w-4 h-4" />
-                )}
-                {showFilters ? "Ẩn bộ lọc" : "Hiện bộ lọc"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSearchTerm("")}
-              >
-                <IconRefresh className="w-4 h-4" />
-                Xóa bộ lọc
-              </Button>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Tìm kiếm</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSearchTerm("")}
+            >
+              <IconRefresh className="w-4 h-4" />
+              Xóa tìm kiếm
+            </Button>
           </div>
-          {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Tìm kiếm
-                </label>
-                <div className="relative">
-                  <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Tìm theo tên, email, số điện thoại..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="relative">
+            <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Tìm theo tên, email, số điện thoại..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">
@@ -356,83 +536,136 @@ export default function UsersPage() {
             key={user.id}
             className="hover:shadow-lg transition-shadow duration-200"
           >
-            <CardContent className="p-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <img
-                  src={user.photoURL}
-                  alt={user.displayName}
-                  className="w-14 h-14 rounded-full object-cover border"
-                />
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {user.displayName}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1 text-gray-600">
-                    <IconMail className="w-4 h-4" />
-                    <span>{user.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 text-gray-600">
-                    <IconPhone className="w-4 h-4" />
-                    <span>{user.phone}</span>
-                  </div>
-                  <Badge
-                    className={
-                      (statusOptions.find((o) => o.value === user.status)
-                        ?.color || "") + " border px-2 py-1 ml-1"
-                    }
-                  >
-                    {statusOptions.find((o) => o.value === user.status)?.icon}
-                    <span className="ml-1">
-                      {statusOptions.find((o) => o.value === user.status)
-                        ?.label || user.status}
-                    </span>
-                  </Badge>
-                </div>
-              </div>
-              <div>
-                <Dialog
-                  open={detailDialogOpen && selectedUser?.id === user.id}
-                  onOpenChange={(open) => {
-                    setDetailDialogOpen(open);
-                    if (open) {
-                      setSelectedUser(user);
-                    } else {
-                      setSelectedUser(null);
-                    }
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="bg-white hover:bg-gray-50"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setDetailDialogOpen(true);
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <img
+                      src={user.photoURL || "/default-avatar.png"}
+                      alt={user.displayName || "User"}
+                      className="w-14 h-14 rounded-full object-cover border"
+                      onError={(e) => {
+                        e.currentTarget.src = "/default-avatar.png";
                       }}
-                    >
-                      Xem chi tiết
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] overflow-y-auto p-0">
-                    <DialogHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 px-8 py-8 border-b">
-                      <DialogTitle className="text-3xl font-bold text-gray-900 flex items-center space-x-4">
-                        <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl shadow-sm">
-                          <IconUser className="w-8 h-8 text-blue-600" />
-                        </div>
-                        <div>
-                          <span>Chi tiết người dùng</span>
-                          <p className="text-gray-600 mt-1 text-lg">
-                            Xem thông tin, giỏ hàng, đơn hàng của người dùng
-                          </p>
-                        </div>
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="p-8">
-                      <UserDetailDialog user={user} />
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {user.displayName || "Không có tên"}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1 text-gray-600">
+                      <IconMail className="w-4 h-4" />
+                      <span className="text-sm">
+                        {user.email || "Không có email"}
+                      </span>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                    <div className="flex items-center gap-2 mt-1 text-gray-600">
+                      <IconPhone className="w-4 h-4" />
+                      <span className="text-sm">
+                        {user.phone || "Không có số điện thoại"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-gray-600">
+                      <IconMapPin className="w-4 h-4" />
+                      <span className="text-sm">
+                        {user.address || "Không có địa chỉ"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <EditUserDialog user={user} onUpdate={handleUpdateUser} />
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-white hover:bg-gray-50"
+                    onClick={() => handleToggleUserStatus(user.id, user.status)}
+                  >
+                    <IconLock className="w-4 h-4 mr-2" />
+                    {user.status === "active" ? "Khóa" : "Mở khóa"}
+                  </Button>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-red-50 text-red-600 border-red-200"
+                      >
+                        <IconTrash className="w-4 h-4 mr-2" />
+                        Xóa
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <IconAlertCircle className="w-5 h-5 text-red-500" />
+                          Xác nhận xóa người dùng
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Bạn có chắc chắn muốn xóa người dùng &quot;
+                          {user.displayName}&quot;? Hành động này không thể hoàn
+                          tác.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Xóa
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <Dialog
+                    open={detailDialogOpen && selectedUser?.id === user.id}
+                    onOpenChange={(open) => {
+                      setDetailDialogOpen(open);
+                      if (open) {
+                        setSelectedUser(user);
+                      } else {
+                        setSelectedUser(null);
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white hover:bg-gray-50"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setDetailDialogOpen(true);
+                        }}
+                      >
+                        <IconChevronRight className="w-4 h-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] overflow-y-auto p-0">
+                      <DialogHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 px-8 py-8 border-b">
+                        <DialogTitle className="text-3xl font-bold text-gray-900 flex items-center space-x-4">
+                          <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl shadow-sm">
+                            <IconUser className="w-8 h-8 text-blue-600" />
+                          </div>
+                          <div>
+                            <span>Chi tiết người dùng</span>
+                            <p className="text-gray-600 mt-1 text-lg">
+                              Xem thông tin, giỏ hàng, đơn hàng của người dùng
+                            </p>
+                          </div>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="p-8">
+                        <UserDetailDialog user={user} />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -60,36 +60,53 @@ interface Order {
   userId: string;
 }
 
+// Helper function to map icon names to emojis
+const getStatusIcon = (iconName: string) => {
+  const iconMap: { [key: string]: string } = {
+    "time-outline": "⏰",
+    "sync-outline": "🔄",
+    "car-outline": "🚚",
+    "checkmark-circle-outline": "✅",
+    "close-circle-outline": "❌",
+  };
+  return iconMap[iconName] || "📦";
+};
+
 const statusOptions = [
   {
+    label: "Chờ xác nhận",
     value: "pending",
-    label: "Chờ xử lý",
-    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
-    icon: "⏳",
+    color: "#f5a623",
+    bgColor: "#FFF5E6",
+    icon: "time-outline",
   },
   {
-    value: "processing",
     label: "Đang xử lý",
-    color: "bg-blue-50 text-blue-700 border-blue-200",
-    icon: "⚙️",
+    value: "processing",
+    color: "#9C27B0",
+    bgColor: "#F3E5F5",
+    icon: "sync-outline",
   },
   {
+    label: "Đang giao hàng",
     value: "shipped",
-    label: "Đã gửi hàng",
-    color: "bg-purple-50 text-purple-700 border-purple-200",
-    icon: "📦",
+    color: "#4a90e2",
+    bgColor: "#E3F2FD",
+    icon: "car-outline",
   },
   {
-    value: "delivered",
     label: "Đã giao hàng",
-    color: "bg-green-50 text-green-700 border-green-200",
-    icon: "✅",
+    value: "delivered",
+    color: "#4CAF50",
+    bgColor: "#E8F5E9",
+    icon: "checkmark-circle-outline",
   },
   {
-    value: "cancelled",
     label: "Đã hủy",
-    color: "bg-red-50 text-red-700 border-red-200",
-    icon: "❌",
+    value: "cancelled",
+    color: "#F44336",
+    bgColor: "#FFEBEE",
+    icon: "close-circle-outline",
   },
 ];
 
@@ -114,7 +131,9 @@ function OrderDetailDialog({
     const statusOption = statusOptions.find(
       (option) => option.value === status
     );
-    return statusOption?.color || "bg-gray-100 text-gray-800";
+    return statusOption
+      ? `bg-[${statusOption.bgColor}] text-[${statusOption.color}] border-[${statusOption.color}]`
+      : "bg-gray-100 text-gray-800";
   };
 
   const formatDate = (dateString: string) => {
@@ -146,10 +165,13 @@ function OrderDetailDialog({
           <Badge
             className={`${getStatusColor(
               status
-            )} border-2 px-4 py-2 text-sm font-medium`}
+            )} border-2 px-4 py-2 text-sm font-medium flex items-center`}
           >
-            <span className="mr-2 text-lg">
-              {statusOptions.find((option) => option.value === status)?.icon}
+            <span className="mr-2">
+              {getStatusIcon(
+                statusOptions.find((option) => option.value === status)?.icon ||
+                  ""
+              )}
             </span>
             {statusOptions.find((option) => option.value === status)?.label ||
               status}
@@ -266,10 +288,10 @@ function OrderDetailDialog({
                 )} border w-full justify-center py-2`}
               >
                 <span className="mr-1">
-                  {
+                  {getStatusIcon(
                     statusOptions.find((option) => option.value === status)
-                      ?.icon
-                  }
+                      ?.icon || ""
+                  )}
                 </span>
                 {statusOptions.find((option) => option.value === status)
                   ?.label || status}
@@ -286,7 +308,7 @@ function OrderDetailDialog({
                 <SelectContent>
                   {statusOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      <span className="mr-2">{option.icon}</span>
+                      <span className="mr-2">{getStatusIcon(option.icon)}</span>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -506,11 +528,27 @@ export default function OrdersPage() {
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
       setLoading(true);
+
+      // Cập nhật vào orders collection (cho admin)
       await set(ref(database, `orders/${orderId}/status`), newStatus);
       await set(
         ref(database, `orders/${orderId}/updatedAt`),
         new Date().toISOString()
       );
+
+      // Cập nhật vào users collection (cho mobile app)
+      const order = orders.find((o) => o.id === orderId);
+      if (order) {
+        await set(
+          ref(database, `users/${order.userId}/orders/${orderId}/status`),
+          newStatus
+        );
+        await set(
+          ref(database, `users/${order.userId}/orders/${orderId}/updatedAt`),
+          new Date().toISOString()
+        );
+      }
+
       setLoading(false);
       setDetailDialogOpen(false);
       toast.success("Cập nhật trạng thái đơn hàng thành công!");
@@ -530,7 +568,9 @@ export default function OrdersPage() {
     const statusOption = statusOptions.find(
       (option) => option.value === status
     );
-    return statusOption?.color || "bg-gray-100 text-gray-800";
+    return statusOption
+      ? `bg-[${statusOption.bgColor}] text-[${statusOption.color}] border-[${statusOption.color}]`
+      : "bg-gray-100 text-gray-800";
   };
 
   const formatDate = (dateString: string) => {
@@ -570,7 +610,9 @@ export default function OrdersPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-600 font-medium">Chờ xử lý</p>
+                <p className="text-sm text-blue-600 font-medium">
+                  Chờ xác nhận
+                </p>
                 <p className="text-2xl font-bold text-blue-800">
                   {getStatusCount("pending")}
                 </p>
@@ -605,7 +647,7 @@ export default function OrdersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-purple-600 font-medium">
-                  Đã gửi hàng
+                  Đang giao hàng
                 </p>
                 <p className="text-2xl font-bold text-purple-800">
                   {getStatusCount("shipped")}
@@ -709,7 +751,9 @@ export default function OrdersPage() {
                     <SelectItem value="all">Tất cả trạng thái</SelectItem>
                     {statusOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        <span className="mr-2">{option.icon}</span>
+                        <span className="mr-2">
+                          {getStatusIcon(option.icon)}
+                        </span>
                         {option.label}
                       </SelectItem>
                     ))}
@@ -787,11 +831,11 @@ export default function OrdersPage() {
                           className={`${getStatusColor(order.status)} border`}
                         >
                           <span className="mr-1">
-                            {
+                            {getStatusIcon(
                               statusOptions.find(
                                 (option) => option.value === order.status
-                              )?.icon
-                            }
+                              )?.icon || ""
+                            )}
                           </span>
                           {statusOptions.find(
                             (option) => option.value === order.status

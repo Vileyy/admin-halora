@@ -186,6 +186,9 @@ export function AppSidebar({
     if (title === "Người dùng") {
       onMenuClick?.("users");
     }
+    if (title === "Doanh thu") {
+      onMenuClick?.("revenue");
+    }
   };
 
   return (
