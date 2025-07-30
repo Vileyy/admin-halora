@@ -24,7 +24,7 @@ export function LoginForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (email === DUMMY_USER.email && password === DUMMY_USER.password) {
-      document.cookie = "auth-token=true; path=/; max-age=86400"; // 24 giờ
+      document.cookie = "auth-token=true; path=/; max-age=3600"; 
       setError("");
       router.push("/dashboard");
     } else {

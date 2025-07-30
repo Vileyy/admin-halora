@@ -13,6 +13,7 @@ import OrdersPage from "./orders/page";
 import UsersPage from "./users/page";
 import RevenuePage from "./revenue/page";
 import data from "./data.json";
+import BannersPage from "./banners/page";
 
 export default function Page() {
   const [currentView, setCurrentView] = useState("products");
@@ -47,6 +48,8 @@ export default function Page() {
               <UsersPage />
             ) : currentView === "revenue" ? (
               <RevenuePage />
+            ) : currentView === "banners" ? (
+              <BannersPage />
             ) : (
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
                 <SectionCards />

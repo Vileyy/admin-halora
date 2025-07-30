@@ -616,18 +616,6 @@ export default function RevenuePage() {
                       <span>{formatCurrency(product.totalRevenue)}</span>
                     </div>
                   </div>
-                  <div className="w-24 h-6 bg-blue-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500"
-                      style={{
-                        width: `${
-                          (product.totalQuantity /
-                            filteredProducts[0].totalQuantity) *
-                          100
-                        }%`,
-                      }}
-                    />
-                  </div>
                 </div>
               ))}
             </div>
@@ -637,7 +625,7 @@ export default function RevenuePage() {
         <Card className="bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">
-              Chi tiết sản phẩm bán chạy
+              Chi tiết sản phẩm được bán ra
             </CardTitle>
           </CardHeader>
           <CardContent>

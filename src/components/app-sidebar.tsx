@@ -189,6 +189,9 @@ export function AppSidebar({
     if (title === "Doanh thu") {
       onMenuClick?.("revenue");
     }
+    if (title === "Banner") {
+      onMenuClick?.("banners");
+    }
   };
 
   return (
