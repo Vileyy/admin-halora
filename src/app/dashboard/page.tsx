@@ -1,9 +1,6 @@
 "use client";
 import { useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
-import { ChartAreaInteractive } from "@/components/chart-area-interactive";
-import { DataTable } from "@/components/data-table";
-import { SectionCards } from "@/components/section-cards";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import ProductsPage from "./products/page";
@@ -12,8 +9,8 @@ import BrandsPage from "./brands/page";
 import OrdersPage from "./orders/page";
 import UsersPage from "./users/page";
 import RevenuePage from "./revenue/page";
-import data from "./data.json";
 import BannersPage from "./banners/page";
+import NotificationsPage from "./notifications/page";
 
 export default function Page() {
   const [currentView, setCurrentView] = useState("products");
@@ -50,13 +47,12 @@ export default function Page() {
               <RevenuePage />
             ) : currentView === "banners" ? (
               <BannersPage />
+            ) : currentView === "notifications" ? (
+              <NotificationsPage />
             ) : (
-              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                <SectionCards />
-                <div className="px-4 lg:px-6">
-                  <ChartAreaInteractive />
-                </div>
-                <DataTable data={data} />
+              <div>
+                <h1>404</h1>
+                <p>Không tìm thấy trang</p>
               </div>
             )}
           </div>

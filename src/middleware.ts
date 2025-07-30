@@ -9,7 +9,6 @@ export function middleware(request: NextRequest) {
   const isDashboardPage = request.nextUrl.pathname.startsWith("/dashboard");
 
   // Kiểm tra trạng thái đăng nhập từ cookie
-  // Trong thực tế, bạn sẽ lưu token vào cookie thay vì localStorage
   const authCookie = request.cookies.get("auth-token");
   const isAuthenticated = !!authCookie;
 
@@ -21,6 +20,15 @@ export function middleware(request: NextRequest) {
   // Nếu đã đăng nhập và đang ở trang login, chuyển về dashboard
   if (isAuthenticated && isLoginPage) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Cho phép truy cập trang chủ
+  if (request.nextUrl.pathname === "/") {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } else {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
   }
 
   return NextResponse.next();

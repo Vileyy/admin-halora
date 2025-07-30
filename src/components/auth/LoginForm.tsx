@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export function LoginForm({
   className,
@@ -14,6 +15,7 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const DUMMY_USER = {
@@ -21,15 +23,24 @@ export function LoginForm({
     password: "admin123",
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === DUMMY_USER.email && password === DUMMY_USER.password) {
-      document.cookie = "auth-token=true; path=/; max-age=3600"; 
-      setError("");
-      router.push("/dashboard");
-    } else {
-      setError("Email hoặc mật khẩu không đúng!");
-    }
+    setIsLoading(true);
+    setError("");
+
+    // Giả lập thời gian xử lý đăng nhập
+    setTimeout(() => {
+      if (email === DUMMY_USER.email && password === DUMMY_USER.password) {
+        document.cookie = "auth-token=true; path=/; max-age=3600";
+        toast.success("Đăng nhập thành công!");
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1200);
+      } else {
+        setError("Email hoặc mật khẩu không đúng!");
+        setIsLoading(false);
+      }
+    }, 1000); 
   };
 
   return (
@@ -76,8 +87,8 @@ export function LoginForm({
               {error && (
                 <div className="text-red-500 text-sm text-center">{error}</div>
               )}
-              <Button type="submit" className="w-full">
-                Login
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Đang đăng nhập..." : "Login"}
               </Button>
               <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                 <span className="bg-card text-muted-foreground relative z-10 px-2">

@@ -192,6 +192,9 @@ export function AppSidebar({
     if (title === "Banner") {
       onMenuClick?.("banners");
     }
+    if (title === "Thông báo"){
+      onMenuClick?.("notifications")
+    }
   };
 
   return (
@@ -213,8 +216,8 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} onSelect={handleNavClick} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        {/* <NavDocuments items={data.documents} />
+        <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
