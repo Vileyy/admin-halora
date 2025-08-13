@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { database } from "@/lib/firebase";
-import { ref, onValue, off, set, push } from "firebase/database";
+import { ref, onValue, off, push } from "firebase/database";
 
 export interface RevenueItem {
   id: string;
@@ -99,7 +99,7 @@ export function useRealtimeRevenue() {
           }
 
           const items: RevenueItem[] = Object.entries(data).map(
-            ([id, item]: [string, any]) => ({
+            ([id, item]: [string, Omit<RevenueItem, "id">]) => ({
               id,
               ...item,
             })
@@ -195,7 +195,26 @@ export function useRealtimeRevenue() {
   }, []);
 
   // Hàm để lưu doanh thu khi đơn hàng hoàn thành
-  const saveRevenueFromOrder = async (order: any, userInfo: any) => {
+  const saveRevenueFromOrder = async (
+    order: {
+      id: string;
+      userId: string;
+      items: Array<{
+        id: string;
+        name: string;
+        image: string;
+        category?: string;
+        quantity: number;
+        price: string;
+      }>;
+    },
+    userInfo: {
+      displayName?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+    }
+  ) => {
     try {
       const completedAt = new Date().toISOString();
       const date = new Date(completedAt);

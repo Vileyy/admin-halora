@@ -503,7 +503,7 @@ export default function OrdersPage() {
         // Nếu đơn hàng vừa được đánh dấu là "delivered", lưu vào doanh thu
         if (newStatus === "delivered" && oldStatus !== "delivered") {
           try {
-            await saveRevenueFromOrder(order, order.userInfo);
+            await saveRevenueFromOrder(order, order.userInfo || {});
             toast.success(
               "Đơn hàng đã hoàn thành và được ghi nhận vào doanh thu!"
             );
