@@ -9,13 +9,15 @@ import {
   ShoppingCart,
   Users,
   Settings,
+  TrendingUp,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Products", href: "/products", icon: Package },
-  { name: "Orders", href: "/orders", icon: ShoppingCart },
-  { name: "Users", href: "/users", icon: Users },
+  { name: "Products", href: "/dashboard/products", icon: Package },
+  { name: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
+  { name: "Revenue", href: "/dashboard/revenue", icon: TrendingUp },
+  { name: "Users", href: "/dashboard/users", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

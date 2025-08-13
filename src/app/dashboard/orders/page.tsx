@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { database } from "@/lib/firebase";
-import { ref, onValue, set } from "firebase/database";
+import { ref, set } from "firebase/database";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,36 +29,14 @@ import {
   IconUser,
   IconShoppingCart,
   IconSearch,
-  IconFilter,
   IconRefresh,
   IconDownload,
   IconEye,
   IconEyeOff,
+  IconAlertCircle,
 } from "@tabler/icons-react";
-
-interface OrderItem {
-  id: string;
-  image: string;
-  name: string;
-  price: string;
-  quantity: number;
-}
-
-interface Order {
-  id: string;
-  createdAt: string;
-  discountCode: string;
-  note: string;
-  orderItems: OrderItem[];
-  paymentMethod: string;
-  shippingFee: number;
-  shippingMethod: string;
-  status: string;
-  subtotal: number;
-  total: number;
-  updatedAt: string;
-  userId: string;
-}
+import { useRealtimeOrders, Order } from "@/hooks/useRealtimeOrders";
+import { useRealtimeRevenue } from "@/hooks/useRealtimeRevenue";
 
 // Helper function to map icon names to emojis
 const getStatusIcon = (iconName: string) => {
@@ -220,10 +198,13 @@ function OrderDetailDialog({
                 <IconUser className="w-5 h-5 text-blue-500" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">
-                    Mã khách hàng
+                    Thông tin khách hàng
                   </p>
                   <p className="text-sm text-gray-600">
-                    {order.userId.slice(-8)}
+                    {order.userInfo?.displayName || "Không có tên"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {order.userInfo?.email || "Không có email"}
                   </p>
                 </div>
               </div>
@@ -264,7 +245,7 @@ function OrderDetailDialog({
                     Phí vận chuyển
                   </p>
                   <p className="text-sm text-gray-600">
-                    {formatPrice(order.shippingFee)} VNĐ
+                    {formatPrice(order.shippingCost || 0)} VNĐ
                   </p>
                 </div>
               </div>
@@ -331,16 +312,17 @@ function OrderDetailDialog({
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center space-x-2">
             <IconShoppingCart className="w-5 h-5" />
-            <span>Sản phẩm đã đặt ({order.orderItems.length})</span>
+            <span>Sản phẩm đã đặt ({order.items.length})</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {order.orderItems.map((item, index) => (
+            {order.items.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={item.image}
                   alt={item.name}
@@ -363,16 +345,21 @@ function OrderDetailDialog({
         </CardContent>
       </Card>
 
-      {/* Ghi chú */}
-      {order.note && (
+      {/* Thông tin địa chỉ giao hàng */}
+      {order.userInfo?.address && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Ghi chú</CardTitle>
+            <CardTitle>Địa chỉ giao hàng</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-              {order.note}
+              {order.userInfo.address}
             </p>
+            {order.userInfo.phone && (
+              <p className="text-sm text-gray-600 mt-2">
+                Số điện thoại: {order.userInfo.phone}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -387,19 +374,27 @@ function OrderDetailDialog({
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Tổng tiền hàng:</span>
               <span className="font-medium">
-                {formatPrice(order.subtotal)} VNĐ
+                {formatPrice(order.itemsSubtotal || 0)} VNĐ
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Phí vận chuyển:</span>
               <span className="font-medium">
-                {formatPrice(order.shippingFee)} VNĐ
+                {formatPrice(order.shippingCost || 0)} VNĐ
               </span>
             </div>
+            {order.discountAmount && order.discountAmount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Giảm giá:</span>
+                <span className="font-medium text-red-600">
+                  -{formatPrice(order.discountAmount)} VNĐ
+                </span>
+              </div>
+            )}
             <Separator />
             <div className="flex justify-between items-center text-lg font-bold text-green-800">
               <span>Tổng cộng:</span>
-              <span>{formatPrice(order.total)} VNĐ</span>
+              <span>{formatPrice(order.totalAmount)} VNĐ</span>
             </div>
           </div>
         </CardContent>
@@ -409,9 +404,15 @@ function OrderDetailDialog({
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const {
+    orders,
+    stats,
+    loading: realtimeLoading,
+    error,
+  } = useRealtimeOrders();
+  const { saveRevenueFromOrder } = useRealtimeRevenue();
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
@@ -427,50 +428,7 @@ export default function OrdersPage() {
     end: "",
   });
 
-  useEffect(() => {
-    const ordersRef = ref(database, "orders");
-    const unsubscribe = onValue(ordersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return setOrders([]);
-      const ordersArray = Object.entries(data)
-        .map(([id, value]: [string, unknown]) => {
-          if (
-            typeof value === "object" &&
-            value !== null &&
-            "createdAt" in value &&
-            "orderItems" in value &&
-            "status" in value
-          ) {
-            const v = value as {
-              createdAt: string;
-              discountCode: string;
-              note: string;
-              orderItems: OrderItem[];
-              paymentMethod: string;
-              shippingFee: number;
-              shippingMethod: string;
-              status: string;
-              subtotal: number;
-              total: number;
-              updatedAt: string;
-              userId: string;
-            };
-            return {
-              id,
-              ...v,
-            };
-          }
-          return null;
-        })
-        .filter((item): item is Order => item !== null)
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      setOrders(ordersArray);
-    });
-    return () => unsubscribe();
-  }, []);
+  // Realtime data được quản lý bởi useRealtimeOrders hook
 
   // Filter orders based on current filters
   useEffect(() => {
@@ -487,7 +445,13 @@ export default function OrdersPage() {
         (order) =>
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
           order.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.orderItems.some((item) =>
+          order.userInfo?.displayName
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          order.userInfo?.email
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          order.items.some((item) =>
             item.name.toLowerCase().includes(searchTerm.toLowerCase())
           )
       );
@@ -514,31 +478,17 @@ export default function OrdersPage() {
     setFilteredOrders(filtered);
   }, [orders, statusFilter, searchTerm, dateRange]);
 
-  // Calculate statistics
-  const getStatusCount = (status: string) => {
-    return orders.filter((order) => order.status === status).length;
-  };
-
-  const getTotalRevenue = () => {
-    return orders
-      .filter((order) => order.status === "delivered")
-      .reduce((total, order) => total + order.total, 0);
-  };
+  // Statistics được tính sẵn từ useRealtimeOrders hook
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
-      setLoading(true);
+      setUpdateLoading(true);
 
-      // Cập nhật vào orders collection (cho admin)
-      await set(ref(database, `orders/${orderId}/status`), newStatus);
-      await set(
-        ref(database, `orders/${orderId}/updatedAt`),
-        new Date().toISOString()
-      );
-
-      // Cập nhật vào users collection (cho mobile app)
+      // Cập nhật vào users collection (đây là nguồn chính cho realtime)
       const order = orders.find((o) => o.id === orderId);
       if (order) {
+        const oldStatus = order.status;
+
         await set(
           ref(database, `users/${order.userId}/orders/${orderId}/status`),
           newStatus
@@ -547,13 +497,29 @@ export default function OrdersPage() {
           ref(database, `users/${order.userId}/orders/${orderId}/updatedAt`),
           new Date().toISOString()
         );
+
+        // Nếu đơn hàng vừa được đánh dấu là "delivered", lưu vào doanh thu
+        if (newStatus === "delivered" && oldStatus !== "delivered") {
+          try {
+            await saveRevenueFromOrder(order, order.userInfo);
+            toast.success(
+              "Đơn hàng đã hoàn thành và được ghi nhận vào doanh thu!"
+            );
+          } catch (revenueError) {
+            console.error("Error saving to revenue:", revenueError);
+            toast.warning(
+              "Đơn hàng đã cập nhật nhưng có lỗi khi ghi nhận doanh thu"
+            );
+          }
+        } else {
+          toast.success("Cập nhật trạng thái đơn hàng thành công!");
+        }
       }
 
-      setLoading(false);
+      setUpdateLoading(false);
       setDetailDialogOpen(false);
-      toast.success("Cập nhật trạng thái đơn hàng thành công!");
-    } catch (error) {
-      setLoading(false);
+    } catch {
+      setUpdateLoading(false);
       toast.error("Có lỗi xảy ra khi cập nhật trạng thái!");
     }
   };
@@ -581,24 +547,51 @@ export default function OrdersPage() {
     return new Intl.NumberFormat("vi-VN").format(price);
   };
 
+  // Hiển thị lỗi nếu có
+  if (error) {
+    return (
+      <div className="p-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <IconAlertCircle className="w-6 h-6 text-red-600" />
+              <div>
+                <h3 className="text-lg font-semibold text-red-800">
+                  Lỗi kết nối
+                </h3>
+                <p className="text-red-600">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Quản lý đơn hàng</h1>
           <p className="text-gray-600 mt-1">
-            Theo dõi và quản lý tất cả đơn hàng
+            Theo dõi và quản lý tất cả đơn hàng theo thời gian thực
           </p>
+          {realtimeLoading && (
+            <p className="text-sm text-blue-600 mt-1 flex items-center">
+              <IconRefresh className="w-4 h-4 mr-1 animate-spin" />
+              Đang tải dữ liệu...
+            </p>
+          )}
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-right">
             <p className="text-sm text-gray-600">Tổng đơn hàng</p>
-            <p className="text-2xl font-bold text-blue-600">{orders.length}</p>
+            <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-600">Tổng doanh thu</p>
             <p className="text-2xl font-bold text-green-600">
-              {formatPrice(getTotalRevenue())} VNĐ
+              {formatPrice(stats.totalRevenue)} VNĐ
             </p>
           </div>
         </div>
@@ -614,7 +607,7 @@ export default function OrdersPage() {
                   Chờ xác nhận
                 </p>
                 <p className="text-2xl font-bold text-blue-800">
-                  {getStatusCount("pending")}
+                  {stats.pending}
                 </p>
               </div>
               <div className="p-2 bg-blue-200 rounded-lg">
@@ -632,7 +625,7 @@ export default function OrdersPage() {
                   Đang xử lý
                 </p>
                 <p className="text-2xl font-bold text-yellow-800">
-                  {getStatusCount("processing")}
+                  {stats.processing}
                 </p>
               </div>
               <div className="p-2 bg-yellow-200 rounded-lg">
@@ -650,7 +643,7 @@ export default function OrdersPage() {
                   Đang giao hàng
                 </p>
                 <p className="text-2xl font-bold text-purple-800">
-                  {getStatusCount("shipped")}
+                  {stats.shipped}
                 </p>
               </div>
               <div className="p-2 bg-purple-200 rounded-lg">
@@ -668,7 +661,7 @@ export default function OrdersPage() {
                   Đã giao hàng
                 </p>
                 <p className="text-2xl font-bold text-green-800">
-                  {getStatusCount("delivered")}
+                  {stats.delivered}
                 </p>
               </div>
               <div className="p-2 bg-green-200 rounded-lg">
@@ -684,7 +677,7 @@ export default function OrdersPage() {
               <div>
                 <p className="text-sm text-red-600 font-medium">Đã hủy</p>
                 <p className="text-2xl font-bold text-red-800">
-                  {getStatusCount("cancelled")}
+                  {stats.cancelled}
                 </p>
               </div>
               <div className="p-2 bg-red-200 rounded-lg">
@@ -849,7 +842,7 @@ export default function OrdersPage() {
                         </div>
                         <div className="flex items-center space-x-1">
                           <IconShoppingCart className="w-4 h-4" />
-                          <span>{order.orderItems.length} sản phẩm</span>
+                          <span>{order.items.length} sản phẩm</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <IconCreditCard className="w-4 h-4" />
@@ -867,19 +860,19 @@ export default function OrdersPage() {
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm text-gray-600">Tổng tiền</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {formatPrice(order.total)} VNĐ
+                        {formatPrice(order.totalAmount)} VNĐ
                       </p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm text-gray-600">Tiền hàng</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {formatPrice(order.subtotal)} VNĐ
+                        {formatPrice(order.itemsSubtotal || 0)} VNĐ
                       </p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm text-gray-600">Phí vận chuyển</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {formatPrice(order.shippingFee)} VNĐ
+                        {formatPrice(order.shippingCost || 0)} VNĐ
                       </p>
                     </div>
                   </div>
@@ -928,7 +921,7 @@ export default function OrdersPage() {
                         <OrderDetailDialog
                           order={order}
                           onStatusChange={handleStatusChange}
-                          loading={loading}
+                          loading={updateLoading}
                         />
                       </div>
                     </DialogContent>
