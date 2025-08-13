@@ -72,16 +72,37 @@ function ProductForm({
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    setImage(data.secure_url || data.url || "");
-    setUploading(false);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload failed: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setImage(data.secure_url || data.url || "");
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert(
+        "Lỗi upload ảnh: " +
+          (error instanceof Error ? error.message : "Unknown error")
+      );
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,7 +189,6 @@ export default function ProductsPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState<string | null>(null);
-  // Thêm state để quản lý dialog xác nhận xóa sản phẩm
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
 
   useEffect(() => {
