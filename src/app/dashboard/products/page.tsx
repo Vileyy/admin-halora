@@ -46,16 +46,20 @@ function ProductForm({
   onSubmit,
   loading,
   initialData,
+  category: fixedCategory,
 }: {
   onSubmit: (data: Omit<Product, "id">) => void;
   loading?: boolean;
   initialData?: Partial<Omit<Product, "id">>;
+  category?: string;
 }) {
   const [name, setName] = useState(initialData?.name || "");
   const [price, setPrice] = useState(
     initialData?.price ? initialData.price.toLocaleString("vi-VN") : ""
   );
-  const [category, setCategory] = useState(initialData?.category || "");
+  const [category, setCategory] = useState(
+    initialData?.category || fixedCategory || ""
+  );
   const [description, setDescription] = useState(
     initialData?.description || ""
   );
@@ -110,7 +114,14 @@ function ProductForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const priceNumber = Number(price.replace(/\./g, ""));
-    onSubmit({ name, price: priceNumber, category, description, image });
+    const finalCategory = fixedCategory || category;
+    onSubmit({
+      name,
+      price: priceNumber,
+      category: finalCategory,
+      description,
+      image,
+    });
   };
 
   return (
@@ -133,21 +144,31 @@ function ProductForm({
           placeholder="VNĐ"
         />
       </div>
-      <div>
-        <Label style={{ marginBottom: 10 }}>Danh mục</Label>
-        <Select value={category} onValueChange={setCategory} required>
-          <SelectTrigger>
-            <SelectValue placeholder="Chọn danh mục" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat, idx) => (
-              <SelectItem key={idx} value={cat}>
-                {cat}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {!fixedCategory && (
+        <div>
+          <Label style={{ marginBottom: 10 }}>Danh mục</Label>
+          <Select value={category} onValueChange={setCategory} required>
+            <SelectTrigger>
+              <SelectValue placeholder="Chọn danh mục" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((cat, idx) => (
+                <SelectItem key={idx} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {fixedCategory && (
+        <div>
+          <Label style={{ marginBottom: 10 }}>Danh mục</Label>
+          <div className="px-3 py-2 bg-gray-100 border rounded-md text-sm">
+            {fixedCategory === "new_product" ? "Sản phẩm mới" : fixedCategory}
+          </div>
+        </div>
+      )}
       <div>
         <Label style={{ marginBottom: 5 }}>Mô tả</Label>
         <textarea
@@ -178,7 +199,7 @@ function ProductForm({
   );
 }
 
-export default function ProductsPage() {
+export default function ProductsPage({ category }: { category?: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -186,6 +207,11 @@ export default function ProductsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+
+  // Reset currentPage khi category thay đổi
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [category]);
 
   useEffect(() => {
     const productsRef = ref(database, "products");
@@ -250,7 +276,7 @@ export default function ProductsPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       setLoading(false);
-      setEditDialogOpen(null); // Đóng dialog sau khi cập nhật thành công
+      setEditDialogOpen(null);
       toast.success("Cập nhật sản phẩm thành công!");
     } catch (error) {
       setLoading(false);
@@ -271,11 +297,16 @@ export default function ProductsPage() {
     }
   };
 
+  // Lọc sản phẩm theo category nếu có
+  const filteredProducts = category
+    ? products.filter((product) => product.category === category)
+    : products;
+
   // Tính toán pagination
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentProducts = products.slice(startIndex, endIndex);
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -284,24 +315,53 @@ export default function ProductsPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Quản lý sản phẩm</h1>
+        <h1 className="text-2xl font-bold">
+          {category === "new_product"
+            ? "Quản lý sản phẩm - Sản phẩm mới"
+            : category
+            ? `Quản lý sản phẩm - ${category}`
+            : "Quản lý sản phẩm"}
+        </h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setOpen(true)}>+ Thêm sản phẩm</Button>
+            <Button onClick={() => setOpen(true)}>
+              +{" "}
+              {category === "FlashDeals"
+                ? "Thêm FlashDeals"
+                : category === "new_product"
+                ? "Thêm Sản phẩm mới"
+                : "Thêm sản phẩm"}
+            </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md w-full">
             <DialogHeader>
-              <DialogTitle>Thêm sản phẩm mới</DialogTitle>
+              <DialogTitle>
+                {category === "FlashDeals"
+                  ? "Thêm sản phẩm FlashDeals"
+                  : category === "new_product"
+                  ? "Thêm Sản phẩm mới"
+                  : "Thêm sản phẩm mới"}
+              </DialogTitle>
             </DialogHeader>
             <div className="p-2">
-              <ProductForm onSubmit={handleAddProduct} loading={loading} />
+              <ProductForm
+                onSubmit={handleAddProduct}
+                loading={loading}
+                category={category}
+              />
             </div>
           </DialogContent>
         </Dialog>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách sản phẩm</CardTitle>
+          <CardTitle>
+            {category === "new_product"
+              ? "Danh sách Sản phẩm mới"
+              : category
+              ? `Danh sách sản phẩm ${category}`
+              : "Danh sách sản phẩm"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-4 gap-3">

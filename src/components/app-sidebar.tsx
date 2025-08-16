@@ -43,6 +43,17 @@ const data = {
       title: "Quản lý sản phẩm",
       url: "#",
       icon: IconDatabase,
+      items: [
+        {
+          title: "FlashDeals",
+          url: "#",
+        },
+        {
+          title: "Sản phẩm mới",
+          url: "#",
+          value: "new_product", // Giá trị thực tế để query database
+        },
+      ],
     },
     {
       title: "Quản lý danh mục",
@@ -170,9 +181,19 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
   onMenuClick?: (view: string) => void;
 }) {
-  const handleNavClick = (title: string) => {
+  const handleNavClick = (
+    title: string,
+    subItem?: string,
+    subValue?: string
+  ) => {
     if (title === "Quản lý sản phẩm") {
-      onMenuClick?.("products");
+      if (subItem === "FlashDeals" ) {
+        onMenuClick?.("products-flashdeals");
+      } else if (subItem === "Sản phẩm mới" || subValue === "new_product") {
+        onMenuClick?.("products-newproduct");
+      } else {
+        onMenuClick?.("products");
+      }
     }
     if (title === "Quản lý danh mục") {
       onMenuClick?.("categories");

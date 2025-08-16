@@ -35,6 +35,10 @@ export default function Page() {
           <div className="@container/main flex flex-1 flex-col gap-2">
             {currentView === "products" ? (
               <ProductsPage />
+            ) : currentView === "products-flashdeals" ? (
+              <ProductsPage category="FlashDeals" />
+            ) : currentView === "products-newproduct" ? (
+              <ProductsPage category="new_product" />
             ) : currentView === "categories" ? (
               <CategoriesPage />
             ) : currentView === "brands" ? (
