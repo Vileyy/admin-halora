@@ -45,12 +45,12 @@ const data = {
       icon: IconDatabase,
     },
     {
-      title: "Danh mục",
+      title: "Quản lý danh mục",
       url: "#",
       icon: IconListDetails,
     },
     {
-      title: "Thương hiệu",
+      title: "Quản lý thương hiệu",
       url: "#",
       icon: IconFolder,
     },
@@ -60,22 +60,22 @@ const data = {
       icon: IconReport,
     },
     {
-      title: "Người dùng",
+      title: "Quản lý người dùng",
       url: "#",
       icon: IconUsers,
     },
     {
-      title: "Doanh thu",
+      title: "Quản lý doanh thu",
       url: "#",
       icon: IconChartBar,
     },
     {
-      title: "Banner",
+      title: "Quản lý banner",
       url: "#",
       icon: IconCamera,
     },
     {
-      title: "Thông báo",
+      title: "Quản lý thông báo",
       url: "#",
       icon: IconFileDescription,
     },
@@ -174,26 +174,26 @@ export function AppSidebar({
     if (title === "Quản lý sản phẩm") {
       onMenuClick?.("products");
     }
-    if (title === "Danh mục") {
+    if (title === "Quản lý danh mục") {
       onMenuClick?.("categories");
     }
-    if (title === "Thương hiệu") {
+    if (title === "Quản lý thương hiệu") {
       onMenuClick?.("brands");
     }
     if (title === "Quản lý đơn hàng") {
       onMenuClick?.("orders");
     }
-    if (title === "Người dùng") {
+    if (title === "Quản lý người dùng") {
       onMenuClick?.("users");
     }
-    if (title === "Doanh thu") {
+    if (title === "Quản lý doanh thu") {
       onMenuClick?.("revenue");
     }
-    if (title === "Banner") {
+    if (title === "Quản lý banner") {
       onMenuClick?.("banners");
     }
-    if (title === "Thông báo"){
-      onMenuClick?.("notifications")
+    if (title === "Quản lý thông báo") {
+      onMenuClick?.("notifications");
     }
   };
 

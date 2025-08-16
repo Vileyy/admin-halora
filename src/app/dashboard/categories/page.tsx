@@ -213,16 +213,22 @@ export default function CategoriesPage() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {categories.map((category) => (
-              <Card key={category.id} className="flex flex-col h-full">
-                <img
-                  src={category.image}
-                  alt={category.title}
-                  className="w-full h-48 object-cover rounded-t"
-                />
+              <Card
+                key={category.id}
+                className="flex flex-col h-full shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border-0 bg-white"
+              >
+                <div className="relative overflow-hidden rounded-t-lg">
+                  <img
+                    src={category.image}
+                    alt={category.title}
+                    className="w-full h-48 object-cover transition-transform duration-300 hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
+                </div>
                 <CardContent className="flex-1 p-4">
                   <div className="space-y-2">
                     <h3
-                      className="font-semibold line-clamp-2"
+                      className="font-semibold line-clamp-2 hover:text-primary transition-colors duration-200"
                       title={category.title}
                     >
                       {category.title}
@@ -238,6 +244,7 @@ export default function CategoriesPage() {
                           <Button
                             size="sm"
                             variant="outline"
+                            className="hover:bg-blue-50 hover:border-blue-300 transition-colors duration-200"
                             onClick={() => setEditDialogOpen(category.id)}
                           >
                             Sửa
@@ -268,6 +275,7 @@ export default function CategoriesPage() {
                           <Button
                             size="sm"
                             variant="destructive"
+                            className="hover:bg-red-600 transition-colors duration-200"
                             onClick={() => setDeleteDialogOpen(category.id)}
                           >
                             Xóa
