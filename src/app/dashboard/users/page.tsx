@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
+import { NoSSR } from "@/components/ui/no-ssr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { database } from "@/lib/firebase";
 import { ref, onValue, update, remove } from "firebase/database";
@@ -13,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -29,7 +31,6 @@ import {
   IconMail,
   IconPhone,
   IconMapPin,
-  IconShoppingCart,
   IconRefresh,
   IconSearch,
   IconCheck,
@@ -90,6 +91,7 @@ interface UserData {
   address: string;
   gender: string;
   photoURL: string;
+  avatar: string;
   status: string;
   cart: UserCartItem[];
   orders: Record<string, UserOrder>;
@@ -109,6 +111,57 @@ const statusOptions = [
     icon: <IconX className="w-4 h-4" />,
   },
 ];
+
+// Helper function get user avatar
+const getUserAvatar = (user: UserData): string => {
+  return user.avatar || user.photoURL || "/default-avatar.svg";
+};
+
+function UserAvatar({
+  user,
+  size = "w-14 h-14",
+  showOnlineStatus = false,
+}: {
+  user: UserData;
+  size?: string;
+  showOnlineStatus?: boolean;
+}) {
+  const getSizeInPixels = (sizeClass: string): number => {
+    if (sizeClass.includes("16")) return 64;
+    if (sizeClass.includes("14")) return 56;
+    if (sizeClass.includes("12")) return 48;
+    if (sizeClass.includes("10")) return 40;
+    if (sizeClass.includes("8")) return 32;
+    return 56;
+  };
+
+  const pixelSize = getSizeInPixels(size);
+
+  return (
+    <div className="relative">
+      <NoSSR
+        fallback={<div className={`${size} rounded-full bg-gray-200 border`} />}
+      >
+        <Image
+          src={getUserAvatar(user)}
+          alt={user.displayName || "User"}
+          width={pixelSize}
+          height={pixelSize}
+          className={`${size} rounded-full object-cover border`}
+          onError={(e) => {
+            e.currentTarget.src = "/default-avatar.svg";
+          }}
+          priority={false}
+          placeholder="blur"
+          blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNTAiIGZpbGw9IiNmM2Y0ZjYiLz48L3N2Zz4="
+        />
+      </NoSSR>
+      {showOnlineStatus && (
+        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+      )}
+    </div>
+  );
+}
 
 function EditUserDialog({
   user,
@@ -152,7 +205,9 @@ function EditUserDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="displayName">Tên hiển thị</Label>
+            <Label htmlFor="displayName" className="mb-2">
+              Tên hiển thị
+            </Label>
             <Input
               id="displayName"
               value={formData.displayName}
@@ -163,7 +218,9 @@ function EditUserDialog({
             />
           </div>
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="mb-2">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -175,7 +232,9 @@ function EditUserDialog({
             />
           </div>
           <div>
-            <Label htmlFor="phone">Số điện thoại</Label>
+            <Label htmlFor="phone" className="mb-2">
+              Số điện thoại
+            </Label>
             <Input
               id="phone"
               value={formData.phone}
@@ -186,7 +245,9 @@ function EditUserDialog({
             />
           </div>
           <div>
-            <Label htmlFor="address">Địa chỉ</Label>
+            <Label htmlFor="address" className="mb-2">
+              Địa chỉ
+            </Label>
             <Input
               id="address"
               value={formData.address}
@@ -197,7 +258,9 @@ function EditUserDialog({
             />
           </div>
           <div>
-            <Label htmlFor="gender">Giới tính</Label>
+            <Label htmlFor="gender" className="mb-2">
+              Giới tính
+            </Label>
             <Select
               value={formData.gender}
               onValueChange={(value) =>
@@ -215,7 +278,9 @@ function EditUserDialog({
             </Select>
           </div>
           <div>
-            <Label htmlFor="status">Trạng thái</Label>
+            <Label htmlFor="status" className="mb-2">
+              Trạng thái
+            </Label>
             <Select
               value={formData.status}
               onValueChange={(value) =>
@@ -264,14 +329,7 @@ function UserDetailDialog({ user }: { user: UserData }) {
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center gap-4 pb-3">
-          <img
-            src={user.photoURL || "/default-avatar.png"}
-            alt={user.displayName || "User"}
-            className="w-16 h-16 rounded-full object-cover border"
-            onError={(e) => {
-              e.currentTarget.src = "/default-avatar.png";
-            }}
-          />
+          <UserAvatar user={user} size="w-16 h-16" />
           <div>
             <CardTitle className="text-xl font-bold">
               {user.displayName || "Không có tên"}
@@ -314,9 +372,11 @@ function UserDetailDialog({ user }: { user: UserData }) {
                 key={item.id}
                 className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg"
               >
-                <img
+                <Image
                   src={item.image}
                   alt={item.name}
+                  width={64}
+                  height={64}
                   className="w-16 h-16 object-cover rounded-lg shadow-sm"
                 />
                 <div className="flex-1">
@@ -377,9 +437,11 @@ function UserDetailDialog({ user }: { user: UserData }) {
                       key={item.id}
                       className="flex items-center gap-2 bg-white rounded px-2 py-1 border"
                     >
-                      <img
+                      <Image
                         src={item.image}
                         alt={item.name}
+                        width={32}
+                        height={32}
                         className="w-8 h-8 rounded object-cover"
                       />
                       <span className="text-xs">{item.name}</span>
@@ -407,6 +469,12 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Tránh hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const usersRef = ref(database, "users");
@@ -415,10 +483,10 @@ export default function UsersPage() {
       if (!data) return setUsers([]);
       const usersArray = Object.entries(data).map(
         ([id, value]: [string, unknown]) => {
-          const { id: _omit, ...user } = value as UserData;
+          const userData = value as UserData;
           return {
+            ...userData,
             id,
-            ...user,
           };
         }
       );
@@ -449,7 +517,7 @@ export default function UsersPage() {
       const userRef = ref(database, `users/${userId}`);
       await update(userRef, data);
       toast.success("Cập nhật người dùng thành công!");
-    } catch (error) {
+    } catch {
       toast.error("Có lỗi xảy ra khi cập nhật người dùng!");
     }
   };
@@ -467,7 +535,7 @@ export default function UsersPage() {
           ? "Mở khóa tài khoản thành công!"
           : "Khóa tài khoản thành công!"
       );
-    } catch (error) {
+    } catch {
       toast.error("Có lỗi xảy ra khi thay đổi trạng thái tài khoản!");
     }
   };
@@ -477,10 +545,42 @@ export default function UsersPage() {
       const userRef = ref(database, `users/${userId}`);
       await remove(userRef);
       toast.success("Xóa người dùng thành công!");
-    } catch (error) {
+    } catch {
       toast.error("Có lỗi xảy ra khi xóa người dùng!");
     }
   };
+
+  // Hiển thị loading cho đến khi component mounted để tránh hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Quản lý người dùng
+            </h1>
+            <p className="text-gray-600 mt-1">Đang tải dữ liệu người dùng...</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-lg border p-6 animate-pulse"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gray-200 rounded-full"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  <div className="h-3 bg-gray-200 rounded w-48"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -541,17 +641,11 @@ export default function UsersPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <img
-                      src={user.photoURL || "/default-avatar.png"}
-                      alt={user.displayName || "User"}
-                      className="w-14 h-14 rounded-full object-cover border"
-                      onError={(e) => {
-                        e.currentTarget.src = "/default-avatar.png";
-                      }}
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                  </div>
+                  <UserAvatar
+                    user={user}
+                    size="w-14 h-14"
+                    showOnlineStatus={true}
+                  />
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       {user.displayName || "Không có tên"}

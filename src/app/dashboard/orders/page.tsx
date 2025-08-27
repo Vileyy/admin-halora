@@ -430,7 +430,6 @@ export default function OrdersPage() {
     end: "",
   });
 
-  // Realtime data được quản lý bởi useRealtimeOrders hook
 
   // Filter orders based on current filters
   useEffect(() => {

@@ -5,8 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { database } from "@/lib/firebase";
 import { ref, onValue, push, set, remove } from "firebase/database";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -15,138 +13,94 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-
-interface Brand {
-  id: string;
-  image: string;
-}
-
-function BrandForm({
-  onSubmit,
-  loading,
-  initialData,
-}: {
-  onSubmit: (data: Omit<Brand, "id">) => void;
-  loading?: boolean;
-  initialData?: Partial<Omit<Brand, "id">>;
-}) {
-  const [image, setImage] = useState(initialData?.image || "");
-  const [uploading, setUploading] = useState(false);
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Upload failed: ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setImage(data.secure_url || data.url || "");
-    } catch (error) {
-      console.error("Upload error:", error);
-      alert(
-        "Lỗi upload ảnh: " +
-          (error instanceof Error ? error.message : "Unknown error")
-      );
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({ image });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label style={{ marginBottom: 10 }}>Hình ảnh thương hiệu</Label>
-        {image && (
-          <img
-            src={image}
-            alt="preview"
-            className="w-32 h-32 object-cover mb-2 rounded"
-          />
-        )}
-        <Input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
-          required
-        />
-        {uploading && <div>Đang upload ảnh...</div>}
-      </div>
-      <Button type="submit" disabled={loading || uploading} className="w-full">
-        {loading ? "Đang lưu..." : "Lưu thương hiệu"}
-      </Button>
-    </form>
-  );
-}
+import { Brand, BrandFormData } from "@/types/Brand";
+import { BrandForm } from "@/components/admin/brands/BrandForm";
+import { BrandTable } from "@/components/admin/brands/BrandTable";
+import { IconPlus } from "@tabler/icons-react";
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
 
   useEffect(() => {
     const brandsRef = ref(database, "brands");
-    const unsubscribe = onValue(brandsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return setBrands([]);
-      const brandsArray = Object.entries(data)
-        .map(([id, value]: [string, unknown]) => {
-          if (typeof value === "object" && value !== null && "image" in value) {
-            const v = value as {
-              image: string;
-            };
-            return {
-              id,
-              ...v,
-            };
-          }
-          return null;
-        })
-        .filter((item): item is Brand => item !== null);
-      setBrands(brandsArray);
-    });
+    const unsubscribe = onValue(
+      brandsRef,
+      (snapshot) => {
+        const data = snapshot.val();
+        if (!data) {
+          setBrands([]);
+          setInitialLoading(false);
+          return;
+        }
+
+        const brandsArray = Object.entries(data)
+          .map(([id, value]: [string, unknown]) => {
+            if (typeof value === "object" && value !== null) {
+              const v = value as {
+                name?: string;
+                description?: string;
+                logoUrl?: string;
+                image?: string; 
+              };
+              if (v.name || v.image || v.logoUrl) {
+                const brand: Brand = {
+                  id,
+                  name: v.name || `Brand ${id.slice(-4)}`,
+                  description: v.description,
+                  logoUrl: v.logoUrl || v.image,
+                  image: v.image,
+                };
+                return brand;
+              }
+            }
+            return null;
+          })
+          .filter((item): item is Brand => item !== null);
+
+        setBrands(brandsArray);
+        setInitialLoading(false);
+      },
+      (error) => {
+        setInitialLoading(false);
+        toast.error("Lỗi khi tải danh sách thương hiệu!");
+      }
+    );
+
     return () => unsubscribe();
   }, []);
 
-  const handleAddBrand = async (data: Omit<Brand, "id">) => {
+  const handleAddBrand = async (data: BrandFormData) => {
     try {
       setLoading(true);
       const brandsRef = ref(database, "brands");
-      await push(brandsRef, data);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await push(brandsRef, data);
+
+      if (result.key) {
+        // Manually add the new brand to state for immediate UI update
+        const newBrand: Brand = {
+          id: result.key,
+          name: data.name,
+          description: data.description,
+          logoUrl: data.logoUrl,
+        };
+        setBrands((prev) => [...prev, newBrand]);
+      }
+
       setLoading(false);
       setOpen(false);
       toast.success("Thêm thương hiệu thành công!");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi thêm thương hiệu!");
     }
   };
 
-  const handleEditBrand = async (brandId: string, data: Omit<Brand, "id">) => {
+  const handleEditBrand = async (brandId: string, data: BrandFormData) => {
     try {
       setLoading(true);
       await set(ref(database, `brands/${brandId}`), data);
@@ -154,7 +108,7 @@ export default function BrandsPage() {
       setLoading(false);
       setEditDialogOpen(null);
       toast.success("Cập nhật thương hiệu thành công!");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi cập nhật!");
     }
@@ -167,7 +121,7 @@ export default function BrandsPage() {
       setLoading(false);
       setDeleteDialogOpen(null);
       toast.success("Xóa thương hiệu thành công!");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi xóa thương hiệu!");
     }
@@ -179,9 +133,12 @@ export default function BrandsPage() {
         <h1 className="text-2xl font-bold">Quản lý thương hiệu</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setOpen(true)}>+ Thêm thương hiệu</Button>
+            <Button onClick={() => setOpen(true)}>
+              <IconPlus className="w-4 h-4 mr-2" />
+              Thêm thương hiệu
+            </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md w-full">
+          <DialogContent className="max-w-lg w-full">
             <DialogHeader>
               <DialogTitle>Thêm thương hiệu mới</DialogTitle>
             </DialogHeader>
@@ -191,103 +148,33 @@ export default function BrandsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách thương hiệu</CardTitle>
+          <CardTitle>Danh sách thương hiệu ({brands.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {brands.map((brand) => (
-              <Card key={brand.id} className="flex flex-col h-full">
-                <img
-                  src={brand.image}
-                  alt="Brand"
-                  className="w-full h-48 object-cover rounded-t"
-                />
-                <CardContent className="flex-1 p-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-end gap-2 mt-2">
-                      <Dialog
-                        open={editDialogOpen === brand.id}
-                        onOpenChange={(open) =>
-                          setEditDialogOpen(open ? brand.id : null)
-                        }
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditDialogOpen(brand.id)}
-                          >
-                            Sửa
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md w-full">
-                          <DialogHeader>
-                            <DialogTitle>Sửa thương hiệu</DialogTitle>
-                          </DialogHeader>
-                          <div className="p-2">
-                            <BrandForm
-                              onSubmit={(data) =>
-                                handleEditBrand(brand.id, data)
-                              }
-                              loading={loading}
-                              initialData={brand}
-                            />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Dialog
-                        open={deleteDialogOpen === brand.id}
-                        onOpenChange={(open) =>
-                          setDeleteDialogOpen(open ? brand.id : null)
-                        }
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setDeleteDialogOpen(brand.id)}
-                          >
-                            Xóa
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md w-full">
-                          <DialogHeader>
-                            <DialogTitle>Xác nhận xóa thương hiệu</DialogTitle>
-                          </DialogHeader>
-                          <div className="p-4">
-                            <p className="mb-4">
-                              Bạn có chắc chắn muốn xóa thương hiệu này không?
-                            </p>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Hành động này không thể hoàn tác.
-                            </p>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                onClick={() => setDeleteDialogOpen(null)}
-                                disabled={loading}
-                              >
-                                Hủy
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                onClick={() => handleDeleteBrand(brand.id)}
-                                disabled={loading}
-                              >
-                                {loading ? "Đang xóa..." : "Xóa"}
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {initialLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-600">
+                  Đang tải danh sách thương hiệu...
+                </p>
+              </div>
+            </div>
+          ) : (
+            <BrandTable
+              brands={brands}
+              loading={loading}
+              onEdit={handleEditBrand}
+              onDelete={handleDeleteBrand}
+              editDialogOpen={editDialogOpen}
+              setEditDialogOpen={setEditDialogOpen}
+              deleteDialogOpen={deleteDialogOpen}
+              setDeleteDialogOpen={setDeleteDialogOpen}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,11 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import { database } from "@/lib/firebase";
 import { ref, onValue, push, set, remove } from "firebase/database";
 import { Button } from "@/components/ui/button";
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 import { toast } from "sonner";
+import { Brand } from "@/types/Brand";
+import Image from "next/image";
 import {
   Pagination,
   PaginationContent,
@@ -33,13 +32,20 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
+interface ProductVariant {
+  size: string;
+  price: number;
+  stock: number;
+}
+
 interface Product {
   id: string;
   name: string;
-  price: number;
   category: string;
   description: string;
   image: string;
+  variants: ProductVariant[];
+  brandId?: string;
 }
 
 function ProductForm({
@@ -54,9 +60,6 @@ function ProductForm({
   category?: string;
 }) {
   const [name, setName] = useState(initialData?.name || "");
-  const [price, setPrice] = useState(
-    initialData?.price ? initialData.price.toLocaleString("vi-VN") : ""
-  );
   const [category, setCategory] = useState(
     initialData?.category || fixedCategory || ""
   );
@@ -64,8 +67,46 @@ function ProductForm({
     initialData?.description || ""
   );
   const [image, setImage] = useState(initialData?.image || "");
+  const [variants, setVariants] = useState<ProductVariant[]>(
+    initialData?.variants || [{ size: "", price: 0, stock: 0 }]
+  );
+  const [brandId, setBrandId] = useState(
+    initialData?.brandId ? initialData.brandId : "none"
+  );
   const [uploading, setUploading] = useState(false);
   const [categories] = useState<string[]>(["FlashDeals", "new_product"]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  // Load brands realtime
+  useEffect(() => {
+    const brandsRef = ref(database, "brands");
+    const unsubscribe = onValue(brandsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setBrands([]);
+      const brandsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (typeof value === "object" && value !== null) {
+            const v = value as {
+              name?: string;
+              description?: string;
+              logoUrl?: string;
+              image?: string;
+            };
+            return {
+              id,
+              name: v.name || `Brand ${id.slice(-4)}`,
+              description: v.description,
+              logoUrl: v.logoUrl || v.image,
+              image: v.image,
+            } as Brand;
+          }
+          return null;
+        })
+        .filter((item): item is Brand => item !== null);
+      setBrands(brandsArray);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,24 +144,71 @@ function ProductForm({
     }
   };
 
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/[^\d]/g, "");
-    if (value) {
-      value = new Intl.NumberFormat("vi-VN").format(parseInt(value));
+  const handleVariantChange = (
+    index: number,
+    field: keyof ProductVariant,
+    value: string | number
+  ) => {
+    const updatedVariants = [...variants];
+    if (field === "price" || field === "stock") {
+      updatedVariants[index] = {
+        ...updatedVariants[index],
+        [field]: Number(value),
+      };
+    } else if (field === "size") {
+      updatedVariants[index] = {
+        ...updatedVariants[index],
+        [field]: String(value),
+      };
     }
-    setPrice(value);
+    setVariants(updatedVariants);
+  };
+
+  const addVariant = () => {
+    setVariants([...variants, { size: "", price: 0, stock: 0 }]);
+  };
+
+  const removeVariant = (index: number) => {
+    if (variants.length > 1) {
+      setVariants(variants.filter((_, i) => i !== index));
+    }
+  };
+
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat("vi-VN").format(price);
+  };
+
+  const handleVariantPriceChange = (index: number, value: string) => {
+    const numericValue = value.replace(/[^\d]/g, "");
+    handleVariantChange(
+      index,
+      "price",
+      numericValue ? parseInt(numericValue) : 0
+    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const priceNumber = Number(price.replace(/\./g, ""));
+
+    // Validate variants
+    const validVariants = variants.filter(
+      (variant) =>
+        variant.size.trim() !== "" && variant.price > 0 && variant.stock >= 0
+    );
+
+    if (validVariants.length === 0) {
+      alert("Vui lòng thêm ít nhất một biến thể hợp lệ!");
+      return;
+    }
+
     const finalCategory = fixedCategory || category;
     onSubmit({
       name,
-      price: priceNumber,
       category: finalCategory,
       description,
       image,
+      variants: validVariants,
+      brandId: brandId && brandId !== "none" ? brandId : undefined,
     });
   };
 
@@ -135,15 +223,113 @@ function ProductForm({
         />
       </div>
       <div>
-        <Label style={{ marginBottom: 10 }}>Giá</Label>
-        <Input
-          type="text"
-          value={price}
-          onChange={handlePriceChange}
-          required
-          placeholder="VNĐ"
-        />
+        <div className="flex items-center justify-between mb-3">
+          <Label>Biến thể sản phẩm (Dung tích & Giá)</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addVariant}
+            className="text-xs"
+          >
+            + Thêm biến thể
+          </Button>
+        </div>
+        <div className="space-y-3 max-h-60 overflow-y-auto">
+          {variants.map((variant, index) => (
+            <div key={index} className="border rounded-lg p-3 bg-gray-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">
+                  Biến thể {index + 1}
+                </span>
+                {variants.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeVariant(index)}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    Xóa
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs">Dung tích</Label>
+                  <Input
+                    type="text"
+                    value={variant.size}
+                    onChange={(e) =>
+                      handleVariantChange(index, "size", e.target.value)
+                    }
+                    placeholder="50ml"
+                    className="text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Giá (VNĐ)</Label>
+                  <Input
+                    type="text"
+                    value={variant.price > 0 ? formatPrice(variant.price) : ""}
+                    onChange={(e) =>
+                      handleVariantPriceChange(index, e.target.value)
+                    }
+                    placeholder="99,000"
+                    className="text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Tồn kho</Label>
+                  <Input
+                    type="number"
+                    value={variant.stock}
+                    onChange={(e) =>
+                      handleVariantChange(index, "stock", e.target.value)
+                    }
+                    placeholder="100"
+                    className="text-xs"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Brand Selection */}
+      <div>
+        <Label style={{ marginBottom: 10 }}>Thương hiệu</Label>
+        <Select value={brandId} onValueChange={setBrandId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Chọn thương hiệu (tùy chọn)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Không chọn thương hiệu</SelectItem>
+            {brands.map((brand) => (
+              <SelectItem key={brand.id} value={brand.id}>
+                <div className="flex items-center gap-2">
+                  {brand.logoUrl && (
+                    <Image
+                      src={brand.logoUrl}
+                      alt={brand.name}
+                      width={20}
+                      height={20}
+                      className="w-5 h-5 object-cover rounded"
+                    />
+                  )}
+                  <span>{brand.name}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {!fixedCategory && (
         <div>
           <Label style={{ marginBottom: 10 }}>Danh mục</Label>
@@ -183,9 +369,11 @@ function ProductForm({
       <div>
         <Label style={{ marginBottom: 10 }}>Hình ảnh</Label>
         {image && (
-          <img
+          <Image
             src={image}
             alt="preview"
+            width={96}
+            height={96}
             className="w-24 h-24 object-cover mb-2 rounded"
           />
         )}
@@ -201,6 +389,7 @@ function ProductForm({
 
 export default function ProductsPage({ category }: { category?: string }) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState<string | null>(null);
@@ -213,6 +402,37 @@ export default function ProductsPage({ category }: { category?: string }) {
     setCurrentPage(1);
   }, [category]);
 
+  // Load brands
+  useEffect(() => {
+    const brandsRef = ref(database, "brands");
+    const unsubscribe = onValue(brandsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setBrands([]);
+      const brandsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (typeof value === "object" && value !== null) {
+            const v = value as {
+              name?: string;
+              description?: string;
+              logoUrl?: string;
+              image?: string;
+            };
+            return {
+              id,
+              name: v.name || `Brand ${id.slice(-4)}`,
+              description: v.description,
+              logoUrl: v.logoUrl || v.image,
+              image: v.image,
+            } as Brand;
+          }
+          return null;
+        })
+        .filter((item): item is Brand => item !== null);
+      setBrands(brandsArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     const productsRef = ref(database, "products");
     const unsubscribe = onValue(productsRef, (snapshot) => {
@@ -220,6 +440,29 @@ export default function ProductsPage({ category }: { category?: string }) {
       if (!data) return setProducts([]);
       const productsArray = Object.entries(data)
         .map(([id, value]: [string, unknown]) => {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "name" in value &&
+            "category" in value &&
+            "description" in value &&
+            "image" in value &&
+            "variants" in value
+          ) {
+            const v = value as {
+              name: string;
+              category: string;
+              description: string;
+              image: string;
+              variants: ProductVariant[];
+              brandId?: string;
+            };
+            return {
+              id,
+              ...v,
+            };
+          }
+          // Support legacy products without variants
           if (
             typeof value === "object" &&
             value !== null &&
@@ -235,10 +478,16 @@ export default function ProductsPage({ category }: { category?: string }) {
               category: string;
               description: string;
               image: string;
+              brandId?: string;
             };
             return {
               id,
-              ...v,
+              name: v.name,
+              category: v.category,
+              description: v.description,
+              image: v.image,
+              variants: [{ size: "Mặc định", price: v.price, stock: 100 }],
+              brandId: v.brandId,
             };
           }
           return null;
@@ -258,7 +507,7 @@ export default function ProductsPage({ category }: { category?: string }) {
       setLoading(false);
       setOpen(false);
       toast.success("Thêm sản phẩm thành công!");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi thêm sản phẩm!");
     }
@@ -278,7 +527,7 @@ export default function ProductsPage({ category }: { category?: string }) {
       setLoading(false);
       setEditDialogOpen(null);
       toast.success("Cập nhật sản phẩm thành công!");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi cập nhật!");
     }
@@ -291,7 +540,7 @@ export default function ProductsPage({ category }: { category?: string }) {
       setLoading(false);
       setDeleteDialogOpen(null);
       toast.success("Xóa sản phẩm thành công!");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Có lỗi xảy ra khi xóa sản phẩm!");
     }
@@ -310,6 +559,13 @@ export default function ProductsPage({ category }: { category?: string }) {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  // Helper function to get brand name
+  const getBrandName = (brandId?: string): string => {
+    if (!brandId || brandId === "none") return "";
+    const brand = brands.find((b) => b.id === brandId);
+    return brand?.name || "";
   };
 
   return (
@@ -333,7 +589,7 @@ export default function ProductsPage({ category }: { category?: string }) {
                 : "Thêm sản phẩm"}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md w-full">
+          <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {category === "FlashDeals"
@@ -371,9 +627,11 @@ export default function ProductsPage({ category }: { category?: string }) {
                 className="flex flex-col h-full shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border-0 bg-white"
               >
                 <div className="relative overflow-hidden rounded-t-lg">
-                  <img
+                  <Image
                     src={product.image}
                     alt={product.name}
+                    width={200}
+                    height={128}
                     className="w-full h-32 object-cover transition-transform duration-300 hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
@@ -386,11 +644,31 @@ export default function ProductsPage({ category }: { category?: string }) {
                     >
                       {product.name}
                     </h3>
-                    <div className="text-primary font-semibold text-sm">
-                      {new Intl.NumberFormat("vi-VN").format(product.price)} VNĐ
+                    <div className="space-y-1">
+                      {product.variants.map((variant, idx) => (
+                        <div key={idx} className="text-xs">
+                          <span className="font-medium text-primary">
+                            {variant.size}:{" "}
+                            {new Intl.NumberFormat("vi-VN").format(
+                              variant.price
+                            )}{" "}
+                            VNĐ
+                          </span>
+                          <span className="text-muted-foreground ml-2">
+                            (SL: {variant.stock})
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded-full inline-block">
-                      {product.category}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded-full inline-block">
+                        {product.category}
+                      </div>
+                      {product.brandId && getBrandName(product.brandId) && (
+                        <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full inline-block">
+                          {getBrandName(product.brandId)}
+                        </div>
+                      )}
                     </div>
                     <p
                       className="text-xs text-muted-foreground line-clamp-2 leading-tight"
@@ -415,7 +693,7 @@ export default function ProductsPage({ category }: { category?: string }) {
                             Sửa
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-md w-full">
+                        <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
                             <DialogTitle>Sửa sản phẩm</DialogTitle>
                           </DialogHeader>

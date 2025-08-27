@@ -11,6 +11,8 @@ import UsersPage from "./users/page";
 import RevenuePage from "./revenue/page";
 import BannersPage from "./banners/page";
 import NotificationsPage from "./notifications/page";
+import VoucherPage from "./voucher/page";
+import ReviewsPage from "./reviews/page";
 
 export default function Page() {
   const [currentView, setCurrentView] = useState("products");
@@ -53,6 +55,14 @@ export default function Page() {
               <BannersPage />
             ) : currentView === "notifications" ? (
               <NotificationsPage />
+            ) : currentView === "vouchers" ? (
+              <VoucherPage />
+            ) : currentView === "vouchers-shipping" ? (
+              <VoucherPage type="shipping" />
+            ) : currentView === "vouchers-product" ? (
+              <VoucherPage type="product" />
+            ) : currentView === "reviews" ? (
+              <ReviewsPage />
             ) : (
               <div>
                 <h1>404</h1>

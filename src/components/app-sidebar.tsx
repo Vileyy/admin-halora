@@ -15,6 +15,8 @@ import {
   IconReport,
   IconSearch,
   IconSettings,
+  IconStar,
+  IconTicket,
   IconUsers,
 } from "@tabler/icons-react";
 
@@ -51,7 +53,24 @@ const data = {
         {
           title: "Sản phẩm mới",
           url: "#",
-          value: "new_product", // Giá trị thực tế để query database
+          value: "new_product",
+        },
+      ],
+    },
+    {
+      title: "Quản lý voucher",
+      url: "#",
+      icon: IconTicket,
+      items: [
+        {
+          title: "Voucher phí vận chuyển",
+          url: "#",
+          value: "shipping_discount",
+        },
+        {
+          title: "Mã giảm giá sản phẩm",
+          url: "#",
+          value: "product_discount",
         },
       ],
     },
@@ -89,6 +108,11 @@ const data = {
       title: "Quản lý thông báo",
       url: "#",
       icon: IconFileDescription,
+    },
+    {
+      title: "Quản lý đánh giá",
+      url: "#",
+      icon: IconStar,
     },
   ],
   navClouds: [
@@ -187,7 +211,7 @@ export function AppSidebar({
     subValue?: string
   ) => {
     if (title === "Quản lý sản phẩm") {
-      if (subItem === "FlashDeals" ) {
+      if (subItem === "FlashDeals") {
         onMenuClick?.("products-flashdeals");
       } else if (subItem === "Sản phẩm mới" || subValue === "new_product") {
         onMenuClick?.("products-newproduct");
@@ -215,6 +239,24 @@ export function AppSidebar({
     }
     if (title === "Quản lý thông báo") {
       onMenuClick?.("notifications");
+    }
+    if (title === "Quản lý đánh giá") {
+      onMenuClick?.("reviews");
+    }
+    if (title === "Quản lý voucher") {
+      if (
+        subItem === "Voucher phí vận chuyển" ||
+        subValue === "shipping_discount"
+      ) {
+        onMenuClick?.("vouchers-shipping");
+      } else if (
+        subItem === "Mã giảm giá sản phẩm" ||
+        subValue === "product_discount"
+      ) {
+        onMenuClick?.("vouchers-product");
+      } else {
+        onMenuClick?.("vouchers");
+      }
     }
   };
 

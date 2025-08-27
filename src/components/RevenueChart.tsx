@@ -329,6 +329,13 @@ export default function RevenueChart() {
           <TabsTrigger value="products">Sản phẩm</TabsTrigger>
         </TabsList>
 
+        {/* <TabsList className="grid grid-cols-4 w-full max-w-md">
+          <TabsTrigger value="day">Ngày</TabsTrigger>
+          <TabsTrigger value="week">Tuần</TabsTrigger>
+          <TabsTrigger value="month">Tháng</TabsTrigger>
+          <TabsTrigger value="year">Năm</TabsTrigger>
+        </TabsList> */}
+
         <TabsContent value="revenue">
           <Card>
             <CardHeader>
