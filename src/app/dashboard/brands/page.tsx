@@ -45,7 +45,7 @@ export default function BrandsPage() {
                 name?: string;
                 description?: string;
                 logoUrl?: string;
-                image?: string; 
+                image?: string;
               };
               if (v.name || v.image || v.logoUrl) {
                 const brand: Brand = {
@@ -78,19 +78,7 @@ export default function BrandsPage() {
     try {
       setLoading(true);
       const brandsRef = ref(database, "brands");
-      const result = await push(brandsRef, data);
-
-      if (result.key) {
-        // Manually add the new brand to state for immediate UI update
-        const newBrand: Brand = {
-          id: result.key,
-          name: data.name,
-          description: data.description,
-          logoUrl: data.logoUrl,
-        };
-        setBrands((prev) => [...prev, newBrand]);
-      }
-
+      await push(brandsRef, data);
       setLoading(false);
       setOpen(false);
       toast.success("Thêm thương hiệu thành công!");

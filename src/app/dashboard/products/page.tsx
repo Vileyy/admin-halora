@@ -23,6 +23,9 @@ import {
 import { toast } from "sonner";
 import { Brand } from "@/types/Brand";
 import Image from "next/image";
+import { useInventoryData } from "@/hooks/useInventoryData";
+import { StockStatus } from "@/components/products/StockStatus";
+import { ProductStockSummary } from "@/components/products/ProductStockSummary";
 import {
   Pagination,
   PaginationContent,
@@ -31,11 +34,19 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  IconSearch,
+  IconFilter,
+  IconLayoutGrid,
+  IconList,
+} from "@tabler/icons-react";
 
 interface ProductVariant {
   size: string;
   price: number;
-  stock: number;
+  stockQty?: number; // Số lượng tồn kho
 }
 
 interface Product {
@@ -46,7 +57,32 @@ interface Product {
   image: string;
   variants: ProductVariant[];
   brandId?: string;
+  originalProductId?: string;
 }
+
+// Inventory product interface
+interface InventoryProduct {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  supplier?: string;
+  brandId?: string;
+  media?: Array<{
+    id: string;
+    url: string;
+    type: string;
+  }>;
+  variants: Array<{
+    id: string;
+    name: string;
+    price: number;
+    importPrice: number;
+    stockQty: number;
+  }>;
+}
+
+// FlashDeal interfaces không còn cần thiết vì giờ lưu vào products
 
 function ProductForm({
   onSubmit,
@@ -68,7 +104,7 @@ function ProductForm({
   );
   const [image, setImage] = useState(initialData?.image || "");
   const [variants, setVariants] = useState<ProductVariant[]>(
-    initialData?.variants || [{ size: "", price: 0, stock: 0 }]
+    initialData?.variants || [{ size: "", price: 0, stockQty: 0 }]
   );
   const [brandId, setBrandId] = useState(
     initialData?.brandId ? initialData.brandId : "none"
@@ -150,7 +186,7 @@ function ProductForm({
     value: string | number
   ) => {
     const updatedVariants = [...variants];
-    if (field === "price" || field === "stock") {
+    if (field === "price" || field === "stockQty") {
       updatedVariants[index] = {
         ...updatedVariants[index],
         [field]: Number(value),
@@ -165,7 +201,7 @@ function ProductForm({
   };
 
   const addVariant = () => {
-    setVariants([...variants, { size: "", price: 0, stock: 0 }]);
+    setVariants([...variants, { size: "", price: 0, stockQty: 0 }]);
   };
 
   const removeVariant = (index: number) => {
@@ -193,7 +229,9 @@ function ProductForm({
     // Validate variants
     const validVariants = variants.filter(
       (variant) =>
-        variant.size.trim() !== "" && variant.price > 0 && variant.stock >= 0
+        variant.size.trim() !== "" &&
+        variant.price > 0 &&
+        (variant.stockQty || 0) >= 0
     );
 
     if (validVariants.length === 0) {
@@ -285,14 +323,17 @@ function ProductForm({
                   <Label className="text-xs">Tồn kho</Label>
                   <Input
                     type="number"
-                    value={variant.stock}
+                    value={variant.stockQty || ""}
                     onChange={(e) =>
-                      handleVariantChange(index, "stock", e.target.value)
+                      handleVariantChange(
+                        index,
+                        "stockQty",
+                        parseInt(e.target.value) || 0
+                      )
                     }
-                    placeholder="100"
+                    placeholder="0"
                     className="text-xs"
                     min="0"
-                    required
                   />
                 </div>
               </div>
@@ -387,6 +428,766 @@ function ProductForm({
   );
 }
 
+// NewProduct form component (tương tự FlashDeals)
+function NewProductForm({
+  onSubmit,
+  loading,
+}: {
+  onSubmit: (data: Omit<Product, "id">) => void;
+  loading?: boolean;
+}) {
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedProduct, setSelectedProduct] =
+    useState<InventoryProduct | null>(null);
+  const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
+  const [customDescription, setCustomDescription] = useState<string>("");
+  const [customImages, setCustomImages] = useState<string[]>([]);
+  const [inventoryProducts, setInventoryProducts] = useState<
+    InventoryProduct[]
+  >([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  // Load inventory products
+  useEffect(() => {
+    const inventoryRef = ref(database, "inventory");
+    const unsubscribe = onValue(inventoryRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setInventoryProducts([]);
+
+      const productsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (value && typeof value === "object") {
+            return {
+              id,
+              ...value,
+            } as InventoryProduct;
+          }
+          return null;
+        })
+        .filter((item): item is InventoryProduct => item !== null);
+
+      setInventoryProducts(productsArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load brands
+  useEffect(() => {
+    const brandsRef = ref(database, "brands");
+    const unsubscribe = onValue(brandsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setBrands([]);
+      const brandsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (typeof value === "object" && value !== null) {
+            const v = value as {
+              name?: string;
+              description?: string;
+              logoUrl?: string;
+              image?: string;
+            };
+            return {
+              id,
+              name: v.name || `Brand ${id.slice(-4)}`,
+              description: v.description,
+              logoUrl: v.logoUrl || v.image,
+              image: v.image,
+            } as Brand;
+          }
+          return null;
+        })
+        .filter((item): item is Brand => item !== null);
+      setBrands(brandsArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Handle product selection
+  const handleProductChange = (productId: string) => {
+    setSelectedProductId(productId);
+    const product = inventoryProducts.find((p) => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+
+      // Reset selections
+      setSelectedVariants([]);
+      setCustomDescription(product.description || "");
+      setCustomImages(product.media?.map((m) => m.url) || []);
+    }
+  };
+
+  // Handle variant selection
+  const handleVariantSelection = (variantId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedVariants((prev) => [...prev, variantId]);
+    } else {
+      setSelectedVariants((prev) => prev.filter((id) => id !== variantId));
+    }
+  };
+
+  // Format price
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat("vi-VN").format(price);
+  };
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedProductId) {
+      toast.error("Vui lòng chọn sản phẩm!");
+      return;
+    }
+
+    if (selectedVariants.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một biến thể!");
+      return;
+    }
+
+    if (!selectedProduct) {
+      toast.error("Vui lòng chọn sản phẩm!");
+      return;
+    }
+
+    // Tạo sản phẩm mới từ sản phẩm kho - lưu vào nhánh products
+    const productData = {
+      name: selectedProduct.name,
+      category: "new_product", // Tự động set category là new_product
+      description: customDescription,
+      image:
+        customImages.length > 0
+          ? customImages[0]
+          : selectedProduct.media?.[0]?.url || "",
+      variants: selectedVariants.map((variantId) => {
+        const variant = selectedProduct.variants.find(
+          (v) => v.id === variantId
+        );
+        if (!variant) {
+          throw new Error(`Không tìm thấy biến thể ${variantId}`);
+        }
+        return {
+          size: variant.name,
+          price: variant.price, // Giữ nguyên giá gốc
+          stockQty: variant.stockQty || 0, // Lấy số lượng tồn kho từ inventory
+        };
+      }),
+      brandId: selectedProduct.brandId,
+      // Lưu ID sản phẩm gốc để có thể tra cứu tồn kho
+      originalProductId: selectedProductId,
+    };
+
+    // Gọi onSubmit với productData để lưu vào products
+    onSubmit(productData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Product Selection */}
+      <div className="space-y-3">
+        <Label className="text-base font-medium">Chọn sản phẩm từ kho</Label>
+        <Select
+          value={selectedProductId}
+          onValueChange={handleProductChange}
+          required
+        >
+          <SelectTrigger className="h-12">
+            <SelectValue placeholder="Chọn sản phẩm từ kho hàng..." />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
+            {inventoryProducts.map((product) => (
+              <SelectItem key={product.id} value={product.id}>
+                <div className="flex items-center gap-3">
+                  {product.media && product.media[0] && (
+                    <Image
+                      src={product.media[0].url}
+                      alt={product.name}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 object-cover rounded"
+                    />
+                  )}
+                  <div>
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                      {product.brandId &&
+                        brands.find((b) => b.id === product.brandId) && (
+                          <span>
+                            {brands.find((b) => b.id === product.brandId)?.name}
+                          </span>
+                        )}
+                      <span>• {product.variants?.length || 0} biến thể</span>
+                    </div>
+                  </div>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Product Information */}
+      {selectedProduct && (
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-lg mb-3">Thông tin sản phẩm</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Tên:</span>
+                <div className="font-medium">{selectedProduct.name}</div>
+              </div>
+              <div>
+                <span className="text-gray-600">Thương hiệu:</span>
+                <div className="font-medium">
+                  {selectedProduct.brandId &&
+                  brands.find((b) => b.id === selectedProduct.brandId)
+                    ? brands.find((b) => b.id === selectedProduct.brandId)?.name
+                    : "Không có"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label>Mô tả sản phẩm</Label>
+            <Textarea
+              value={customDescription}
+              onChange={(e) => setCustomDescription(e.target.value)}
+              placeholder="Nhập mô tả cho sản phẩm mới..."
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+
+          {/* Images */}
+          {selectedProduct.media && selectedProduct.media.length > 0 && (
+            <div className="space-y-2">
+              <Label>Hình ảnh sản phẩm</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {selectedProduct.media.map((media, index) => (
+                  <div key={index} className="relative">
+                    <Image
+                      src={media.url}
+                      alt={`Image ${index + 1}`}
+                      width={80}
+                      height={80}
+                      className="w-20 h-20 object-cover rounded border"
+                    />
+                    <Checkbox
+                      checked={customImages.includes(media.url)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setCustomImages((prev) => [...prev, media.url]);
+                        } else {
+                          setCustomImages((prev) =>
+                            prev.filter((url) => url !== media.url)
+                          );
+                        }
+                      }}
+                      className="absolute top-1 right-1"
+                    />
+                  </div>
+                ))}
+              </div>
+              {customImages.length > 0 && (
+                <div className="text-sm text-green-600">
+                  ✓ Đã chọn {customImages.length} hình ảnh
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Variants Selection */}
+      {selectedProduct && selectedProduct.variants && (
+        <div className="space-y-3">
+          <Label className="text-base font-medium">
+            Chọn biến thể để thêm vào sản phẩm mới
+          </Label>
+          <div className="space-y-2">
+            {selectedProduct.variants.map((variant) => (
+              <div
+                key={variant.id}
+                className={`border rounded-lg p-4 ${
+                  selectedVariants.includes(variant.id)
+                    ? "bg-blue-50 border-blue-200"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedVariants.includes(variant.id)}
+                    onCheckedChange={(checked) =>
+                      handleVariantSelection(variant.id, checked as boolean)
+                    }
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{variant.name}ml</div>
+                        <div className="text-sm text-gray-500">
+                          Giá: {formatPrice(variant.price)} VNĐ • Tồn kho:{" "}
+                          {variant.stockQty}
+                        </div>
+                      </div>
+                      {selectedVariants.includes(variant.id) && (
+                        <div className="text-sm text-green-600 font-medium">
+                          ✓ Đã chọn
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {selectedVariants.length > 0 && (
+            <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+              Đã chọn {selectedVariants.length} biến thể
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <div className="pt-4">
+        <Button
+          type="submit"
+          disabled={
+            loading || !selectedProductId || selectedVariants.length === 0
+          }
+          className="w-full h-12"
+        >
+          {loading ? "Đang tạo sản phẩm mới..." : "Tạo sản phẩm mới"}
+        </Button>
+
+        {selectedProductId && selectedVariants.length === 0 && (
+          <div className="mt-2 text-sm text-orange-600 text-center">
+            Vui lòng chọn ít nhất một biến thể
+          </div>
+        )}
+
+        {!selectedProductId && (
+          <div className="mt-2 text-sm text-red-600 text-center">
+            Vui lòng chọn sản phẩm trước
+          </div>
+        )}
+      </div>
+    </form>
+  );
+}
+
+// FlashDeals form component
+function FlashDealsForm({
+  onSubmit,
+  loading,
+}: {
+  onSubmit: (data: Omit<Product, "id">) => void;
+  loading?: boolean;
+}) {
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedProduct, setSelectedProduct] =
+    useState<InventoryProduct | null>(null);
+  const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
+  const [flashDealPrices, setFlashDealPrices] = useState<{
+    [key: string]: number;
+  }>({});
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [customDescription, setCustomDescription] = useState<string>("");
+  const [customImages, setCustomImages] = useState<string[]>([]);
+  const [inventoryProducts, setInventoryProducts] = useState<
+    InventoryProduct[]
+  >([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  // Load inventory products
+  useEffect(() => {
+    const inventoryRef = ref(database, "inventory");
+    const unsubscribe = onValue(inventoryRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setInventoryProducts([]);
+
+      const productsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (value && typeof value === "object") {
+            return {
+              id,
+              ...value,
+            } as InventoryProduct;
+          }
+          return null;
+        })
+        .filter((item): item is InventoryProduct => item !== null);
+
+      setInventoryProducts(productsArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load brands
+  useEffect(() => {
+    const brandsRef = ref(database, "brands");
+    const unsubscribe = onValue(brandsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setBrands([]);
+      const brandsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (typeof value === "object" && value !== null) {
+            const v = value as {
+              name?: string;
+              description?: string;
+              logoUrl?: string;
+              image?: string;
+            };
+            return {
+              id,
+              name: v.name || `Brand ${id.slice(-4)}`,
+              description: v.description,
+              logoUrl: v.logoUrl || v.image,
+              image: v.image,
+            } as Brand;
+          }
+          return null;
+        })
+        .filter((item): item is Brand => item !== null);
+      setBrands(brandsArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Handle product selection
+  const handleProductChange = (productId: string) => {
+    setSelectedProductId(productId);
+    const product = inventoryProducts.find((p) => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+
+      // Reset selections
+      setSelectedVariants([]);
+      setFlashDealPrices({});
+      setCustomDescription(product.description || "");
+      setCustomImages(product.media?.map((m) => m.url) || []);
+    }
+  };
+
+  // Handle variant selection
+  const handleVariantSelection = (variantId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedVariants((prev) => [...prev, variantId]);
+      // Tự động set giá FlashDeal = giá gốc khi chọn biến thể
+      if (selectedProduct) {
+        const variant = selectedProduct.variants.find(
+          (v) => v.id === variantId
+        );
+        if (variant) {
+          setFlashDealPrices((prev) => ({
+            ...prev,
+            [variantId]: variant.price,
+          }));
+        }
+      }
+    } else {
+      setSelectedVariants((prev) => prev.filter((id) => id !== variantId));
+      // Remove flash deal price for unselected variant
+      const newPrices = { ...flashDealPrices };
+      delete newPrices[variantId];
+      setFlashDealPrices(newPrices);
+    }
+  };
+
+  // Flash deal price is now automatically set to original price
+
+  // Format price
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat("vi-VN").format(price);
+  };
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedProductId) {
+      toast.error("Vui lòng chọn sản phẩm!");
+      return;
+    }
+
+    if (selectedVariants.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một biến thể!");
+      return;
+    }
+
+    // Validate flash deal prices - giờ chỉ cần kiểm tra có giá hay không
+    const invalidVariants = selectedVariants.filter((variantId) => {
+      const flashDealPrice = flashDealPrices[variantId] || 0;
+      return flashDealPrice <= 0;
+    });
+
+    if (invalidVariants.length > 0) {
+      toast.error("Có lỗi với giá FlashDeal!");
+      return;
+    }
+
+    if (!selectedProduct) {
+      toast.error("Vui lòng chọn sản phẩm!");
+      return;
+    }
+
+    // Tạo sản phẩm FlashDeal từ sản phẩm kho - lưu vào nhánh products
+    const productData = {
+      name: selectedProduct.name,
+      category: "FlashDeals", // Tự động set category là FlashDeals
+      description: customDescription,
+      image:
+        customImages.length > 0
+          ? customImages[0]
+          : selectedProduct.media?.[0]?.url || "",
+      variants: selectedVariants.map((variantId) => {
+        const variant = selectedProduct.variants.find(
+          (v) => v.id === variantId
+        );
+        if (!variant) {
+          throw new Error(`Không tìm thấy biến thể ${variantId}`);
+        }
+        return {
+          size: variant.name,
+          price: flashDealPrices[variantId] || variant.price,
+          stockQty: variant.stockQty || 0, // Lấy số lượng tồn kho từ inventory
+        };
+      }),
+      brandId: selectedProduct.brandId,
+      // Lưu ID sản phẩm gốc để có thể tra cứu tồn kho
+      originalProductId: selectedProductId,
+    };
+
+    // Gọi onSubmit với productData để lưu vào products
+    onSubmit(productData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Product Selection */}
+      <div className="space-y-3">
+        <Label className="text-base font-medium">Chọn sản phẩm từ kho</Label>
+        <Select
+          value={selectedProductId}
+          onValueChange={handleProductChange}
+          required
+        >
+          <SelectTrigger className="h-12">
+            <SelectValue placeholder="Chọn sản phẩm từ kho hàng..." />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
+            {inventoryProducts.map((product) => (
+              <SelectItem key={product.id} value={product.id}>
+                <div className="flex items-center gap-3">
+                  {product.media && product.media[0] && (
+                    <Image
+                      src={product.media[0].url}
+                      alt={product.name}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 object-cover rounded"
+                    />
+                  )}
+                  <div>
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                      {product.brandId &&
+                        brands.find((b) => b.id === product.brandId) && (
+                          <span>
+                            {brands.find((b) => b.id === product.brandId)?.name}
+                          </span>
+                        )}
+                      <span>• {product.variants?.length || 0} biến thể</span>
+                    </div>
+                  </div>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Product Information */}
+      {selectedProduct && (
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-semibold text-lg mb-3">Thông tin sản phẩm</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Tên:</span>
+                <div className="font-medium">{selectedProduct.name}</div>
+              </div>
+              <div>
+                <span className="text-gray-600">Thương hiệu:</span>
+                <div className="font-medium">
+                  {selectedProduct.brandId &&
+                  brands.find((b) => b.id === selectedProduct.brandId)
+                    ? brands.find((b) => b.id === selectedProduct.brandId)?.name
+                    : "Không có"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label>Mô tả sản phẩm</Label>
+            <Textarea
+              value={customDescription}
+              onChange={(e) => setCustomDescription(e.target.value)}
+              placeholder="Nhập mô tả cho FlashDeal..."
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+
+          {/* Images */}
+          {selectedProduct.media && selectedProduct.media.length > 0 && (
+            <div className="space-y-2">
+              <Label>Hình ảnh sản phẩm</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {selectedProduct.media.map((media, index) => (
+                  <div key={index} className="relative">
+                    <Image
+                      src={media.url}
+                      alt={`Image ${index + 1}`}
+                      width={80}
+                      height={80}
+                      className="w-20 h-20 object-cover rounded border"
+                    />
+                    <Checkbox
+                      checked={customImages.includes(media.url)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setCustomImages((prev) => [...prev, media.url]);
+                        } else {
+                          setCustomImages((prev) =>
+                            prev.filter((url) => url !== media.url)
+                          );
+                        }
+                      }}
+                      className="absolute top-1 right-1"
+                    />
+                  </div>
+                ))}
+              </div>
+              {customImages.length > 0 && (
+                <div className="text-sm text-green-600">
+                  ✓ Đã chọn {customImages.length} hình ảnh
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Variants Selection */}
+      {selectedProduct && selectedProduct.variants && (
+        <div className="space-y-3">
+          <Label className="text-base font-medium">
+            Chọn biến thể áp dụng FlashDeal
+          </Label>
+          <div className="space-y-2">
+            {selectedProduct.variants.map((variant) => (
+              <div
+                key={variant.id}
+                className={`border rounded-lg p-4 ${
+                  selectedVariants.includes(variant.id)
+                    ? "bg-blue-50 border-blue-200"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedVariants.includes(variant.id)}
+                    onCheckedChange={(checked) =>
+                      handleVariantSelection(variant.id, checked as boolean)
+                    }
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{variant.name}ml</div>
+                        <div className="text-sm text-gray-500">
+                          Giá: {formatPrice(variant.price)} VNĐ • Tồn kho:{" "}
+                          {variant.stockQty}
+                        </div>
+                      </div>
+                      {selectedVariants.includes(variant.id) && (
+                        <div className="text-sm text-green-600 font-medium">
+                          ✓ Đã chọn
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {selectedVariants.length > 0 && (
+            <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+              Đã chọn {selectedVariants.length} biến thể
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Date Range */}
+      <div className="space-y-3">
+        <Label className="text-base font-medium">
+          Thời gian áp dụng (tùy chọn)
+        </Label>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-sm">Ngày bắt đầu</Label>
+            <Input
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Ngày kết thúc</Label>
+            <Input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Submit Button */}
+      <div className="pt-4">
+        <Button
+          type="submit"
+          disabled={
+            loading || !selectedProductId || selectedVariants.length === 0
+          }
+          className="w-full h-12"
+        >
+          {loading ? "Đang tạo FlashDeal..." : "Tạo FlashDeal"}
+        </Button>
+
+        {selectedProductId && selectedVariants.length === 0 && (
+          <div className="mt-2 text-sm text-orange-600 text-center">
+            Vui lòng chọn ít nhất một biến thể
+          </div>
+        )}
+
+        {!selectedProductId && (
+          <div className="mt-2 text-sm text-red-600 text-center">
+            Vui lòng chọn sản phẩm trước
+          </div>
+        )}
+      </div>
+    </form>
+  );
+}
+
 export default function ProductsPage({ category }: { category?: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -397,10 +1198,25 @@ export default function ProductsPage({ category }: { category?: string }) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Reset currentPage khi category thay đổi
+  // FlashDeals state
+  const [flashDealsOpen, setFlashDealsOpen] = useState(false);
+
+  // NewProduct state
+  const [newProductOpen, setNewProductOpen] = useState(false);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState<string>("all");
+  const [selectedStockStatus, setSelectedStockStatus] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Get inventory data
+  const { getStockQuantity } = useInventoryData();
+
+  // Reset currentPage khi category hoặc filters thay đổi
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [category]);
+  }, [category, searchTerm, selectedBrand, selectedStockStatus]);
 
   // Load brands
   useEffect(() => {
@@ -456,11 +1272,23 @@ export default function ProductsPage({ category }: { category?: string }) {
               image: string;
               variants: ProductVariant[];
               brandId?: string;
+              originalProductId?: string;
             };
-            return {
+            const product = {
               id,
               ...v,
             };
+
+            // Debug: Log products with originalProductId
+            if (product.originalProductId) {
+              console.log("FlashDeal product loaded:", {
+                id: product.id,
+                name: product.name,
+                originalProductId: product.originalProductId,
+              });
+            }
+
+            return product;
           }
           // Support legacy products without variants
           if (
@@ -479,6 +1307,7 @@ export default function ProductsPage({ category }: { category?: string }) {
               description: string;
               image: string;
               brandId?: string;
+              originalProductId?: string;
             };
             return {
               id,
@@ -486,8 +1315,9 @@ export default function ProductsPage({ category }: { category?: string }) {
               category: v.category,
               description: v.description,
               image: v.image,
-              variants: [{ size: "Mặc định", price: v.price, stock: 100 }],
+              variants: [{ size: "Mặc định", price: v.price, stockQty: 0 }],
               brandId: v.brandId,
+              originalProductId: v.originalProductId,
             };
           }
           return null;
@@ -506,6 +1336,8 @@ export default function ProductsPage({ category }: { category?: string }) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       setLoading(false);
       setOpen(false);
+      setFlashDealsOpen(false);
+      setNewProductOpen(false);
       toast.success("Thêm sản phẩm thành công!");
     } catch {
       setLoading(false);
@@ -546,10 +1378,64 @@ export default function ProductsPage({ category }: { category?: string }) {
     }
   };
 
-  // Lọc sản phẩm theo category nếu có
-  const filteredProducts = category
-    ? products.filter((product) => product.category === category)
-    : products;
+  // FlashDeal giờ sử dụng handleAddProduct để lưu vào products với category="FlashDeals"
+
+  // Lọc sản phẩm theo category và các bộ lọc khác
+  const filteredProducts = React.useMemo(() => {
+    let filtered = category
+      ? products.filter((product) => product.category === category)
+      : products;
+
+    // Lọc theo tên sản phẩm
+    if (searchTerm.trim()) {
+      filtered = filtered.filter((product) =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Lọc theo thương hiệu
+    if (selectedBrand !== "all") {
+      filtered = filtered.filter(
+        (product) => product.brandId === selectedBrand
+      );
+    }
+
+    // Lọc theo trạng thái tồn kho
+    if (selectedStockStatus !== "all") {
+      filtered = filtered.filter((product) => {
+        const hasVariantsWithStock = product.variants?.some((variant) => {
+          const stockQty =
+            variant.stockQty !== undefined
+              ? variant.stockQty
+              : getStockQuantity(
+                  product.originalProductId || product.id,
+                  variant.size
+                );
+
+          switch (selectedStockStatus) {
+            case "in_stock":
+              return stockQty > 10;
+            case "low_stock":
+              return stockQty > 0 && stockQty <= 10;
+            case "out_of_stock":
+              return stockQty === 0;
+            default:
+              return true;
+          }
+        });
+        return hasVariantsWithStock;
+      });
+    }
+
+    return filtered;
+  }, [
+    products,
+    category,
+    searchTerm,
+    selectedBrand,
+    selectedStockStatus,
+    getStockQuantity,
+  ]);
 
   // Tính toán pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -578,37 +1464,201 @@ export default function ProductsPage({ category }: { category?: string }) {
             ? `Quản lý sản phẩm - ${category}`
             : "Quản lý sản phẩm"}
         </h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setOpen(true)}>
-              +{" "}
-              {category === "FlashDeals"
-                ? "Thêm FlashDeals"
-                : category === "new_product"
-                ? "Thêm Sản phẩm mới"
-                : "Thêm sản phẩm"}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
+        <div className="flex gap-3">
+          {category === "FlashDeals" && (
+            <Dialog open={flashDealsOpen} onOpenChange={setFlashDealsOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={() => setFlashDealsOpen(true)}
+                >
+                  + Thêm FlashDeals
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Thêm sản phẩm FlashDeals</DialogTitle>
+                </DialogHeader>
+                <div className="p-2">
+                  <FlashDealsForm
+                    onSubmit={handleAddProduct}
+                    loading={loading}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {category === "new_product" && (
+            <Dialog open={newProductOpen} onOpenChange={setNewProductOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={() => setNewProductOpen(true)}
+                >
+                  + Thêm sản phẩm mới từ kho hàng
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Thêm sản phẩm mới từ kho</DialogTitle>
+                </DialogHeader>
+                <div className="p-2">
+                  <NewProductForm
+                    onSubmit={handleAddProduct}
+                    loading={loading}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setOpen(true)}>
+                +{" "}
                 {category === "FlashDeals"
-                  ? "Thêm sản phẩm FlashDeals"
+                  ? "Thêm sản phẩm mới"
                   : category === "new_product"
                   ? "Thêm Sản phẩm mới"
-                  : "Thêm sản phẩm mới"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="p-2">
-              <ProductForm
-                onSubmit={handleAddProduct}
-                loading={loading}
-                category={category}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+                  : "Thêm sản phẩm"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {category === "FlashDeals"
+                    ? "Thêm sản phẩm mới"
+                    : category === "new_product"
+                    ? "Thêm Sản phẩm mới"
+                    : "Thêm sản phẩm mới"}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-2">
+                <ProductForm
+                  onSubmit={handleAddProduct}
+                  loading={loading}
+                  category={category}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Stock Summary */}
+      <ProductStockSummary
+        products={filteredProducts}
+        getStockQuantity={(productId, variantSize) => {
+          const product = filteredProducts.find((p) => p.id === productId);
+          if (product) {
+            const variant = product.variants.find(
+              (v) => v.size === variantSize
+            );
+            if (variant && variant.stockQty !== undefined) {
+              return variant.stockQty;
+            }
+          }
+
+          // Fallback: sử dụng inventory service cho sản phẩm thường
+          const productIdForStock = product?.originalProductId || productId;
+          return getStockQuantity(productIdForStock, variantSize);
+        }}
+          />
+
+      {/* Controls Section - Bộ lọc */}
+      <Card className="mb-4 mt-4">
+        <CardContent className="p-4 ">
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="relative flex-1 max-w-sm">
+                <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Tìm kiếm sản phẩm..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <IconFilter className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Thương hiệu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả thương hiệu</SelectItem>
+                    {brands.map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedStockStatus}
+                  onValueChange={setSelectedStockStatus}
+                >
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Tồn kho" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="in_stock">Còn hàng</SelectItem>
+                    <SelectItem value="low_stock">Sắp hết</SelectItem>
+                    <SelectItem value="out_of_stock">Hết hàng</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <IconLayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              >
+                <IconList className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Filter Summary */}
+          <div className="flex justify-between items-center mt-3 pt-3 border-t text-sm text-gray-600">
+            <span>
+              Hiển thị {filteredProducts.length} sản phẩm
+              {category &&
+                ` trong danh mục ${
+                  category === "new_product" ? "Sản phẩm mới" : category
+                }`}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedBrand("all");
+                setSelectedStockStatus("all");
+              }}
+              className="h-7 text-xs"
+            >
+              Xóa bộ lọc
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>
@@ -620,63 +1670,167 @@ export default function ProductsPage({ category }: { category?: string }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-4 gap-3">
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-4 gap-3"
+                : "space-y-3"
+            }
+          >
             {currentProducts.map((product) => (
               <Card
                 key={product.id}
-                className="flex flex-col h-full shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 border-0 bg-white"
+                className={`shadow-md hover:shadow-xl transition-all duration-300 border-0 bg-white ${
+                  viewMode === "grid"
+                    ? "flex flex-col h-full hover:scale-105 hover:-translate-y-1"
+                    : "flex flex-row items-center p-4"
+                }`}
               >
-                <div className="relative overflow-hidden rounded-t-lg">
+                <div
+                  className={`relative overflow-hidden ${
+                    viewMode === "grid" ? "rounded-t-lg" : "rounded-lg mr-4"
+                  }`}
+                >
                   <Image
                     src={product.image}
                     alt={product.name}
-                    width={200}
-                    height={128}
-                    className="w-full h-32 object-cover transition-transform duration-300 hover:scale-110"
+                    width={viewMode === "grid" ? 200 : 80}
+                    height={viewMode === "grid" ? 128 : 80}
+                    className={
+                      viewMode === "grid"
+                        ? "w-full h-32 object-cover transition-transform duration-300 hover:scale-110"
+                        : "w-20 h-20 object-cover rounded-lg"
+                    }
                   />
-                  <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
+                  {viewMode === "grid" && (
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
+                  )}
                 </div>
-                <CardContent className="flex-1 p-3">
-                  <div className="space-y-1.5">
-                    <h3
-                      className="font-medium text-sm line-clamp-2 leading-tight hover:text-primary transition-colors duration-200"
-                      title={product.name}
-                    >
-                      {product.name}
-                    </h3>
-                    <div className="space-y-1">
-                      {product.variants.map((variant, idx) => (
-                        <div key={idx} className="text-xs">
-                          <span className="font-medium text-primary">
-                            {variant.size}:{" "}
-                            {new Intl.NumberFormat("vi-VN").format(
-                              variant.price
-                            )}{" "}
-                            VNĐ
-                          </span>
-                          <span className="text-muted-foreground ml-2">
-                            (SL: {variant.stock})
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded-full inline-block">
-                        {product.category}
-                      </div>
-                      {product.brandId && getBrandName(product.brandId) && (
-                        <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full inline-block">
-                          {getBrandName(product.brandId)}
+                <CardContent
+                  className={`flex-1 ${viewMode === "grid" ? "p-3" : "p-0"}`}
+                >
+                  <div
+                    className={
+                      viewMode === "grid"
+                        ? "space-y-1.5"
+                        : "flex justify-between items-center w-full"
+                    }
+                  >
+                    <div className={viewMode === "list" ? "flex-1" : ""}>
+                      <h3
+                        className={`font-medium leading-tight hover:text-primary transition-colors duration-200 ${
+                          viewMode === "grid"
+                            ? "text-sm line-clamp-2"
+                            : "text-base mb-1"
+                        }`}
+                        title={product.name}
+                      >
+                        {product.name}
+                      </h3>
+                      {viewMode === "list" && (
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <div className="text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded-full inline-block">
+                            {product.category}
+                          </div>
+                          {product.brandId && getBrandName(product.brandId) && (
+                            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full inline-block">
+                              {getBrandName(product.brandId)}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                    <p
-                      className="text-xs text-muted-foreground line-clamp-2 leading-tight"
-                      title={product.description}
+                    <div
+                      className={
+                        viewMode === "grid"
+                          ? "space-y-2"
+                          : "flex items-center gap-4"
+                      }
                     >
-                      {product.description}
-                    </p>
-                    <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-gray-100">
+                      {product.variants.map((variant, idx) => {
+                        // Ưu tiên sử dụng stockQty từ variant (cho FlashDeal products)
+                        // Nếu không có thì mới dùng getStockQuantity từ inventory
+                        let stockQty = 0;
+
+                        if (variant.stockQty !== undefined) {
+                          // FlashDeal products có stockQty trực tiếp trong variant
+                          stockQty = variant.stockQty;
+                          console.log("Using direct stockQty from variant:", {
+                            productName: product.name,
+                            variantSize: variant.size,
+                            stockQty: variant.stockQty,
+                          });
+                        } else {
+                          // Sản phẩm thường lấy từ inventory
+                          const productIdForStock =
+                            product.originalProductId || product.id;
+                          stockQty = getStockQuantity(
+                            productIdForStock,
+                            variant.size
+                          );
+                          console.log("Using inventory stockQty:", {
+                            productName: product.name,
+                            variantSize: variant.size,
+                            stockQty,
+                          });
+                        }
+
+                        return (
+                          <div
+                            key={idx}
+                            className={
+                              viewMode === "grid" ? "space-y-1" : "text-sm"
+                            }
+                          >
+                            <div
+                              className={
+                                viewMode === "grid" ? "text-xs" : "font-medium"
+                              }
+                            >
+                              <span className="font-medium text-primary">
+                                {variant.size}:{" "}
+                                {new Intl.NumberFormat("vi-VN").format(
+                                  variant.price
+                                )}{" "}
+                                VNĐ
+                              </span>
+                            </div>
+                            <StockStatus
+                              stockQty={stockQty}
+                              variant={variant.size}
+                              className={viewMode === "grid" ? "ml-2" : ""}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {viewMode === "grid" && (
+                      <>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded-full inline-block">
+                            {product.category}
+                          </div>
+                          {product.brandId && getBrandName(product.brandId) && (
+                            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full inline-block">
+                              {getBrandName(product.brandId)}
+                            </div>
+                          )}
+                        </div>
+                        <p
+                          className="text-xs text-muted-foreground line-clamp-2 leading-tight"
+                          title={product.description}
+                        >
+                          {product.description}
+                        </p>
+                      </>
+                    )}
+                    <div
+                      className={`flex ${
+                        viewMode === "grid"
+                          ? "justify-end gap-1 mt-3 pt-2 border-t border-gray-100"
+                          : "gap-2"
+                      }`}
+                    >
                       <Dialog
                         open={editDialogOpen === product.id}
                         onOpenChange={(open) =>
@@ -687,7 +1841,11 @@ export default function ProductsPage({ category }: { category?: string }) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-xs px-3 py-1.5 h-8 hover:bg-blue-50 hover:border-blue-300 transition-colors duration-200"
+                            className={`hover:bg-blue-50 hover:border-blue-300 transition-colors duration-200 ${
+                              viewMode === "grid"
+                                ? "text-xs px-3 py-1.5 h-8"
+                                : "text-sm px-4 py-2 h-9"
+                            }`}
                             onClick={() => setEditDialogOpen(product.id)}
                           >
                             Sửa
@@ -718,7 +1876,11 @@ export default function ProductsPage({ category }: { category?: string }) {
                           <Button
                             size="sm"
                             variant="destructive"
-                            className="text-xs px-3 py-1.5 h-8 hover:bg-red-600 transition-colors duration-200"
+                            className={`hover:bg-red-600 transition-colors duration-200 ${
+                              viewMode === "grid"
+                                ? "text-xs px-3 py-1.5 h-8"
+                                : "text-sm px-4 py-2 h-9"
+                            }`}
                             onClick={() => setDeleteDialogOpen(product.id)}
                           >
                             Xóa

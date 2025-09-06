@@ -1,77 +1,67 @@
-import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary";
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    console.log("Starting upload process...");
-
-    const data = await req.formData();
-    const file = data.get("file") as File;
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
 
     if (!file) {
-      console.log("No file provided");
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    console.log("File details:", {
-      name: file.name,
-      size: file.size,
-      type: file.type,
+    // Check if Cloudinary credentials are configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      // Mock response for development when Cloudinary is not configured
+      const mockUrl = `https://via.placeholder.com/400x400/0891b2/ffffff?text=${encodeURIComponent(file.name)}`;
+      
+      return NextResponse.json({
+        secure_url: mockUrl,
+        public_id: `mock_${Date.now()}`,
+        resource_type: file.type.startsWith('video/') ? 'video' : 'image',
+      });
+    }
+
+    // Import Cloudinary only when needed
+    const { v2: cloudinary } = await import('cloudinary');
+    
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
     });
 
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File too large. Max size is 10MB" },
-        { status: 400 }
-      );
-    }
+    // Convert file to buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // Check file type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json(
-        { error: "Only image files are allowed" },
-        { status: 400 }
-      );
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    console.log("Uploading to Cloudinary...");
-
-    const result = await new Promise((resolve, reject) => {
-      const uploadTimeout = setTimeout(() => {
-        reject(new Error("Upload timeout after 30 seconds"));
-      }, 30000);
-
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: "uploads",
-            resource_type: "auto",
-            timeout: 30000,
-          },
-          (error, result) => {
-            clearTimeout(uploadTimeout);
-            if (error) {
-              console.error("Cloudinary error:", error);
-              return reject(error);
-            }
-            console.log("Upload successful:", result?.public_id);
+    // Upload to Cloudinary using upload_stream
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'auto', // Automatically detect file type
+          folder: 'halora-products', // Optional: organize uploads in folders
+          quality: 'auto:good', // Optimize quality
+          fetch_format: 'auto', // Optimize format
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
             resolve(result);
           }
-        )
-        .end(buffer);
+        }
+      );
+
+      uploadStream.end(buffer);
     });
 
-    return NextResponse.json(result);
-  } catch (error: unknown) {
-    console.error("Upload error:", error);
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(uploadResult);
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    return NextResponse.json(
+      { error: 'Upload failed' },
+      { status: 500 }
+    );
   }
 }
-
-// Increase timeout for file uploads
-export const maxDuration = 30;

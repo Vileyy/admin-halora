@@ -18,6 +18,7 @@ import {
   IconStar,
   IconTicket,
   IconUsers,
+  IconPackage,
 } from "@tabler/icons-react";
 
 import { NavDocuments } from "@/components/nav-documents";
@@ -113,6 +114,11 @@ const data = {
       title: "Quản lý đánh giá",
       url: "#",
       icon: IconStar,
+    },
+    {
+      title: "Quản lý kho",
+      url: "#",
+      icon: IconPackage,
     },
   ],
   navClouds: [
@@ -242,6 +248,9 @@ export function AppSidebar({
     }
     if (title === "Quản lý đánh giá") {
       onMenuClick?.("reviews");
+    }
+    if (title === "Quản lý kho") {
+      onMenuClick?.("inventory");
     }
     if (title === "Quản lý voucher") {
       if (

@@ -1,10 +1,16 @@
-import { v2 as cloudinary } from "cloudinary";
+// Client-side upload function that uses API route
+export const uploadToCloudinary = async (file: File): Promise<{ secure_url: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+  if (!response.ok) {
+    throw new Error('Upload failed');
+  }
 
-export default cloudinary;
+  return response.json();
+};
