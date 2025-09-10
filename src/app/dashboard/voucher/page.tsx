@@ -37,7 +37,7 @@ import { useVoucherData, useVoucherFilter } from "@/hooks/useVoucherData";
 import { VoucherFormData } from "@/types/Voucher";
 import { toast } from "sonner";
 
-// Create Voucher Form Component
+// Voucher Form Component
 function CreateVoucherForm({
   isOpen,
   onClose,
@@ -82,7 +82,6 @@ function CreateVoucherForm({
 
   const parseCurrencyInput = (value: string): number => {
     if (!value) return 0;
-    // Remove all non-numeric characters
     const cleanValue = value.replace(/[^\d]/g, "");
     return parseFloat(cleanValue) || 0;
   };
@@ -281,7 +280,6 @@ function CreateVoucherForm({
                   }
                 }}
                 onKeyDown={(e) => {
-                  // Ngăn nhập dấu trừ (-) và dấu cộng (+)
                   if (
                     e.key === "-" ||
                     e.key === "+" ||
@@ -318,13 +316,10 @@ function CreateVoucherForm({
                 }
                 onChange={(e) => {
                   const inputValue = e.target.value;
-                  // Remove VNĐ and clean the input
                   const cleanValue = inputValue
                     .replace(/VNĐ/g, "")
                     .replace(/[^\d]/g, "");
                   const numericValue = parseCurrencyInput(cleanValue);
-
-                  // Update display with formatted number (no VNĐ while typing)
                   if (cleanValue === "") {
                     setMinOrderDisplay("");
                     setFormData((prev) => ({ ...prev, minOrder: 0 }));
@@ -338,7 +333,6 @@ function CreateVoucherForm({
                   }
                 }}
                 onBlur={() => {
-                  // Add VNĐ when losing focus
                   if (formData.minOrder > 0) {
                     setMinOrderDisplay(formatCurrencyInput(formData.minOrder));
                   } else {
@@ -346,7 +340,6 @@ function CreateVoucherForm({
                   }
                 }}
                 onFocus={() => {
-                  // Remove VNĐ when focused for easier editing
                   if (formData.minOrder > 0) {
                     setMinOrderDisplay(
                       formatCurrencyForEdit(formData.minOrder)
@@ -356,21 +349,16 @@ function CreateVoucherForm({
                   }
                 }}
                 onKeyDown={(e) => {
-                  // Allow numbers, backspace, delete, tab, escape, enter
                   if (
-                    // Allow: backspace, delete, tab, escape, enter
                     [8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
-                    // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
                     (e.keyCode === 65 && e.ctrlKey === true) ||
                     (e.keyCode === 67 && e.ctrlKey === true) ||
                     (e.keyCode === 86 && e.ctrlKey === true) ||
                     (e.keyCode === 88 && e.ctrlKey === true) ||
-                    // Allow: home, end, left, right
                     (e.keyCode >= 35 && e.keyCode <= 39)
                   ) {
                     return;
                   }
-                  // Ensure that it is a number and stop the keypress
                   if (
                     (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
                     (e.keyCode < 96 || e.keyCode > 105)

@@ -1,8 +1,6 @@
-import "@/app/globals.css";
-import { Toaster } from "@/components/ui/sonner";
 import Link from "next/link";
 
-export default function LoginLayout({
+export default function SignupLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -34,7 +32,7 @@ export default function LoginLayout({
         </div>
 
         {/* Right Column - Illustration */}
-        <div className="relative hidden overflow-hidden bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 animate-gradient lg:block">
+        <div className="relative hidden overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 animate-gradient lg:block">
           {/* Background Pattern */}
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%224%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
 
@@ -42,16 +40,14 @@ export default function LoginLayout({
           <div className="relative flex h-full flex-col justify-center p-8 text-white animate-slide-in-right">
             <div className="max-w-sm">
               <h2 className="mb-4 text-3xl font-bold leading-tight">
-                Chào mừng trở lại
+                Chào mừng đến với
                 <br />
-                <span className="text-yellow-300 animate-pulse">
-                  Halora Cosmestic
-                </span>
+                <span className="text-yellow-300 animate-pulse">Halora Cosmestic</span>
               </h2>
 
               <p className="mb-6 text-base text-blue-100">
-                Đăng nhập vào hệ thống quản trị để tiếp tục quản lý doanh nghiệp
-                của bạn một cách hiệu quả.
+                Nền tảng thương mại điện tử toàn diện, mang đến trải nghiệm mua
+                sắm và quản lý tuyệt vời.
               </p>
 
               {/* Feature List */}
@@ -74,12 +70,12 @@ export default function LoginLayout({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M5 13l4 4L19 7"
                       />
                     </svg>
                   </div>
                   <span className="text-blue-100 text-sm">
-                    Bảo mật tuyệt đối
+                    Mua sắm thông minh & tiện lợi
                   </span>
                 </div>
 
@@ -101,12 +97,12 @@ export default function LoginLayout({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                        d="M5 13l4 4L19 7"
                       />
                     </svg>
                   </div>
                   <span className="text-blue-100 text-sm">
-                    Truy cập nhanh chóng
+                    Theo dõi đơn hàng realtime
                   </span>
                 </div>
 
@@ -128,12 +124,12 @@ export default function LoginLayout({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"
+                        d="M5 13l4 4L19 7"
                       />
                     </svg>
                   </div>
                   <span className="text-blue-100 text-sm">
-                    Quản lý toàn diện
+                    Hỗ trợ 24/7 tận tâm
                   </span>
                 </div>
               </div>
@@ -152,7 +148,6 @@ export default function LoginLayout({
           </div>
         </div>
       </div>
-      <Toaster />
     </div>
   );
 }

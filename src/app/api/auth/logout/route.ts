@@ -6,8 +6,9 @@ export async function POST() {
     { status: 200 }
   );
 
-  // Xóa cookie auth-token
+  // Xóa cookies
   response.cookies.delete("auth-token");
+  response.cookies.delete("user-role");
 
   return response;
 }
