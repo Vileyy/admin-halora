@@ -39,7 +39,6 @@ const saveUserToDatabase = async (user: User): Promise<UserData> => {
   const snapshot = await get(userRef);
 
   if (!snapshot.exists()) {
-    // Chỉ tạo mới nếu user chưa tồn tại
     await set(userRef, userData);
   } else {
     // Cập nhật role nếu cần (trường hợp admin emails thay đổi)

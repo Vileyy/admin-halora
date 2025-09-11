@@ -34,7 +34,7 @@ export function LoginForm({
 
       // Kiểm tra role - chỉ admin được truy cập
       if (userData.role !== "admin") {
-        await signOutOnRoleFail(); 
+        await signOutOnRoleFail();
         setError(
           "Bạn không có quyền truy cập vào hệ thống quản trị. Chỉ admin mới có thể đăng nhập."
         );
@@ -51,7 +51,7 @@ export function LoginForm({
       const errorMessage =
         error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định";
       setError(errorMessage);
-      
+
       setIsLoading(false);
     }
   };
@@ -87,10 +87,13 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("space-y-4", className)} {...props}>
-      <Card className="border-0 shadow-xl shadow-black/5 backdrop-blur-sm bg-white/95 dark:bg-slate-900/95">
+    <div
+      className={cn("space-y-4 page-transition-enter", className)}
+      {...props}
+    >
+      <Card className="border-0 shadow-xl shadow-black/5 backdrop-blur-sm bg-white/95 dark:bg-slate-900/95 animate-card-hover">
         <CardHeader className="space-y-1 pb-4">
-          <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 dark:from-rose-400 dark:to-pink-300 bg-clip-text text-transparent">
             Đăng nhập
           </h1>
           <p className="text-center text-sm text-gray-600 dark:text-gray-400">
@@ -112,11 +115,11 @@ export function LoginForm({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder="Email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-10 pl-3 pr-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 placeholder:text-gray-400"
+                  className="h-10 pl-3 pr-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all duration-300 placeholder:text-gray-400 hover:border-rose-300"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <svg
@@ -147,7 +150,8 @@ export function LoginForm({
                 </Label>
                 <a
                   href="#"
-                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  tabIndex={-1} 
+                  className="text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors " 
                 >
                   Quên mật khẩu?
                 </a>
@@ -160,7 +164,7 @@ export function LoginForm({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-10 pl-3 pr-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 placeholder:text-gray-400"
+                  className="h-10 pl-3 pr-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all duration-300 placeholder:text-gray-400 hover:border-rose-300"
                 />
                 <button
                   type="button"
@@ -234,7 +238,7 @@ export function LoginForm({
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-10 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-10 rounded-lg bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 hover:from-rose-600 hover:via-pink-600 hover:to-orange-500 text-white font-semibold shadow-md hover:shadow-xl hover:shadow-rose-500/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
@@ -284,7 +288,7 @@ export function LoginForm({
               variant="outline"
               onClick={handleGoogleSignIn}
               disabled={isLoading}
-              className="h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all duration-200"
+              className="h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-slate-700 hover:border-rose-300 transition-all duration-300"
             >
               <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                 <path
@@ -314,7 +318,7 @@ export function LoginForm({
               Chưa có tài khoản?{" "}
               <a
                 href="/signup"
-                className="font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                className="font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors"
               >
                 Đăng ký ngay
               </a>
@@ -326,11 +330,11 @@ export function LoginForm({
       {/* Terms */}
       <div className="text-center text-xs text-gray-500 dark:text-gray-400">
         Bằng cách đăng nhập, bạn đồng ý với{" "}
-        <a href="#" className="underline hover:text-blue-600 transition-colors">
+        <a href="#" className="underline hover:text-rose-600 transition-colors">
           Điều khoản dịch vụ
         </a>{" "}
         và{" "}
-        <a href="#" className="underline hover:text-blue-600 transition-colors">
+        <a href="#" className="underline hover:text-rose-600 transition-colors">
           Chính sách bảo mật
         </a>{" "}
         của chúng tôi.

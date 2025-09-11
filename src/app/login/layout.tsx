@@ -19,10 +19,10 @@ export default function LoginLayout({
                 href="/"
                 className="inline-flex items-center gap-2 font-bold text-xl"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 text-white shadow-md animate-glow">
                   <span className="text-sm font-bold">H</span>
                 </div>
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 bg-clip-text text-transparent">
                   Halora Cosmestic
                 </span>
               </Link>
@@ -34,7 +34,7 @@ export default function LoginLayout({
         </div>
 
         {/* Right Column - Illustration */}
-        <div className="relative hidden overflow-hidden bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 animate-gradient lg:block">
+        <div className="relative hidden overflow-hidden bg-gradient-to-br from-rose-400 via-pink-500 to-orange-500 animate-gradient lg:block">
           {/* Background Pattern */}
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%224%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
 
@@ -44,12 +44,12 @@ export default function LoginLayout({
               <h2 className="mb-4 text-3xl font-bold leading-tight">
                 Chào mừng trở lại
                 <br />
-                <span className="text-yellow-300 animate-pulse">
+                <span className="text-orange-200 animate-pulse">
                   Halora Cosmestic
                 </span>
               </h2>
 
-              <p className="mb-6 text-base text-blue-100">
+              <p className="mb-6 text-base text-rose-100">
                 Đăng nhập vào hệ thống quản trị để tiếp tục quản lý doanh nghiệp
                 của bạn một cách hiệu quả.
               </p>
@@ -78,7 +78,7 @@ export default function LoginLayout({
                       />
                     </svg>
                   </div>
-                  <span className="text-blue-100 text-sm">
+                  <span className="text-rose-100 text-sm">
                     Bảo mật tuyệt đối
                   </span>
                 </div>
@@ -105,7 +105,7 @@ export default function LoginLayout({
                       />
                     </svg>
                   </div>
-                  <span className="text-blue-100 text-sm">
+                  <span className="text-rose-100 text-sm">
                     Truy cập nhanh chóng
                   </span>
                 </div>
@@ -132,7 +132,7 @@ export default function LoginLayout({
                       />
                     </svg>
                   </div>
-                  <span className="text-blue-100 text-sm">
+                  <span className="text-rose-100 text-sm">
                     Quản lý toàn diện
                   </span>
                 </div>
@@ -141,14 +141,14 @@ export default function LoginLayout({
 
             {/* Decorative Elements */}
             <div className="absolute -right-16 -top-16 h-32 w-32 rounded-full bg-white/10 backdrop-blur-sm animate-float" />
-            <div className="absolute -bottom-12 -left-12 h-24 w-24 rounded-full bg-yellow-300/20 backdrop-blur-sm animate-float-delayed" />
+            <div className="absolute -bottom-12 -left-12 h-24 w-24 rounded-full bg-orange-300/20 backdrop-blur-sm animate-float-delayed animate-sparkle" />
 
             {/* Additional decorative elements */}
             <div
-              className="absolute top-1/4 right-1/4 h-12 w-12 rounded-full bg-pink-300/20 backdrop-blur-sm animate-float"
+              className="absolute top-1/4 right-1/4 h-12 w-12 rounded-full bg-rose-300/30 backdrop-blur-sm animate-float-slow"
               style={{ animationDelay: "1s" }}
             />
-            <div className="absolute bottom-1/3 left-1/3 h-8 w-8 rounded-full bg-blue-300/30 backdrop-blur-sm animate-float-delayed" />
+            <div className="absolute bottom-1/3 left-1/3 h-8 w-8 rounded-full bg-pink-300/40 backdrop-blur-sm animate-float-delayed animate-sparkle" />
           </div>
         </div>
       </div>
