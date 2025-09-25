@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import {
 } from "@tabler/icons-react";
 import { useVoucherData, useVoucherFilter } from "@/hooks/useVoucherData";
 import { VoucherFormData } from "@/types/Voucher";
+import { VoucherService } from "@/services/voucherService";
 import { toast } from "sonner";
 
 // Voucher Form Component
@@ -545,6 +546,19 @@ export default function VoucherPage({
     await createVoucher(voucherData);
   };
 
+  // Tự động dọn dẹp voucher hết hạn sử dụng khi component mount
+  useEffect(() => {
+    const cleanupExpiredVouchers = async () => {
+      try {
+        await VoucherService.cleanupExpiredUsageVouchers();
+      } catch (error) {
+        console.error("Error during automatic cleanup:", error);
+      }
+    };
+
+    cleanupExpiredVouchers();
+  }, []);
+
   const getBadgeVariant = (status: string) => {
     switch (status) {
       case "active":
@@ -594,6 +608,20 @@ export default function VoucherPage({
           <p className="text-muted-foreground">{pageDescription}</p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await VoucherService.manualCleanup();
+                toast.success("Đã dọn dẹp voucher hết hạn sử dụng");
+              } catch (error) {
+                toast.error("Lỗi khi dọn dẹp voucher");
+              }
+            }}
+          >
+            <IconX className="w-4 h-4 mr-2" />
+            Dọn dẹp voucher hết hạn
+          </Button>
           <Button variant="outline">
             <IconFilter className="w-4 h-4 mr-2" />
             Bộ lọc nâng cao

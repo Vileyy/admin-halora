@@ -64,12 +64,16 @@ export class VoucherService {
         ...vouchersData[id],
       }));
 
-      // Update expired vouchers
+      // Update expired vouchers and filter out vouchers that have reached usage limit
       const now = Date.now();
-      const updatedVouchers = vouchers.map((voucher) => ({
-        ...voucher,
-        status: voucher.endDate < now ? ("expired" as const) : voucher.status,
-      }));
+      const updatedVouchers = vouchers
+        .map((voucher) => ({
+          ...voucher,
+          status: voucher.endDate < now ? ("expired" as const) : voucher.status,
+        }))
+        .filter((voucher) => {
+          return voucher.usageCount < voucher.usageLimit;
+        });
 
       return updatedVouchers;
     } catch (error) {
@@ -81,7 +85,7 @@ export class VoucherService {
   /**
    * Get vouchers by type
    */
-  static async getVouchersByType(   
+  static async getVouchersByType(
     type: "shipping" | "product"
   ): Promise<Voucher[]> {
     const allVouchers = await this.getAllVouchers();
@@ -110,12 +114,17 @@ export class VoucherService {
           ...vouchersData[id],
         }));
 
-        // Update expired vouchers
+        // Update expired vouchers and filter out vouchers that have reached usage limit
         const now = Date.now();
-        const updatedVouchers = vouchers.map((voucher) => ({
-          ...voucher,
-          status: voucher.endDate < now ? ("expired" as const) : voucher.status,
-        }));
+        const updatedVouchers = vouchers
+          .map((voucher) => ({
+            ...voucher,
+            status:
+              voucher.endDate < now ? ("expired" as const) : voucher.status,
+          }))
+          .filter((voucher) => {
+            return voucher.usageCount < voucher.usageLimit;
+          });
 
         callback(updatedVouchers);
       },
@@ -143,6 +152,15 @@ export class VoucherService {
       const voucher = snapshot.val();
       const updatedUsageCount = (voucher.usageCount || 0) + 1;
 
+      // Check if the voucher has reached the usage limit
+      if (updatedUsageCount >= voucher.usageLimit) {
+        await this.deleteVoucher(voucherId);
+        console.log(
+          `Voucher ${voucherId} đã đạt giới hạn sử dụng và đã được xóa`
+        );
+        return;
+      }
+
       await set(
         ref(database, `${VOUCHERS_PATH}/${voucherId}/usageCount`),
         updatedUsageCount
@@ -165,7 +183,6 @@ export class VoucherService {
     status: "active" | "inactive"
   ): Promise<void> {
     try {
-      const voucherRef = this.getVoucherRef(voucherId);
       await set(ref(database, `${VOUCHERS_PATH}/${voucherId}/status`), status);
       await set(
         ref(database, `${VOUCHERS_PATH}/${voucherId}/updatedAt`),
@@ -188,6 +205,54 @@ export class VoucherService {
       console.error("Error deleting voucher:", error);
       throw new Error("Failed to delete voucher");
     }
+  }
+
+  /**
+   * Clean up vouchers that have reached usage limit from database
+   */
+  static async cleanupExpiredUsageVouchers(): Promise<void> {
+    try {
+      const vouchersRef = this.getVouchersRef();
+      const snapshot = await get(vouchersRef);
+
+      if (!snapshot.exists()) {
+        return;
+      }
+
+      const vouchersData = snapshot.val();
+      const vouchersToDelete: string[] = [];
+
+      // Find the vouchers that have reached the usage limit
+      Object.keys(vouchersData).forEach((id) => {
+        const voucher = vouchersData[id];
+        if (voucher.usageCount >= voucher.usageLimit) {
+          vouchersToDelete.push(id);
+        }
+      });
+
+      // Delete the vouchers that have reached the usage limit from the database
+      for (const voucherId of vouchersToDelete) {
+        await this.deleteVoucher(voucherId);
+        console.log(`Đã xóa voucher ${voucherId} vì đã hết hạn sử dụng`);
+      }
+
+      if (vouchersToDelete.length > 0) {
+        console.log(
+          `Đã xóa ${vouchersToDelete.length} voucher hết hạn sử dụng khỏi database`
+        );
+      }
+    } catch (error) {
+      console.error("Error cleaning up expired usage vouchers:", error);
+    }
+  }
+
+  /**
+   * Manually trigger cleanup of expired usage vouchers
+   */
+  static async manualCleanup(): Promise<void> {
+    console.log("Bắt đầu dọn dẹp voucher hết hạn sử dụng...");
+    await this.cleanupExpiredUsageVouchers();
+    console.log("Hoàn thành dọn dẹp voucher hết hạn sử dụng");
   }
 
   /**
