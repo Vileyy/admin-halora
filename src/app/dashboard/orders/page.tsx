@@ -218,8 +218,14 @@ function OrderDetailDialog({
                   </p>
                   <p className="text-sm text-gray-600">
                     {order.paymentMethod === "cod"
-                      ? "Thanh toán khi nhận hàng"
-                      : "Chuyển khoản"}
+                      ? "Thanh toán khi nhận hàng (COD)"
+                      : order.paymentMethod === "vnpay"
+                      ? "VNPay (Đã thanh toán)"
+                      : order.paymentMethod === "stripe"
+                      ? "Stripe (Đã thanh toán)"
+                      : order.paymentMethod === "zalopay"
+                      ? "ZaloPay (Đã thanh toán)"
+                      : "Chuyển khoản (Đã thanh toán)"}
                   </p>
                 </div>
               </div>
@@ -331,15 +337,42 @@ function OrderDetailDialog({
                   className="w-16 h-16 object-cover rounded-lg shadow-sm"
                 />
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{item.name}</h4>
-                  <p className="text-sm text-gray-600">
-                    {formatPrice(parseInt(item.price))} VNĐ x {item.quantity}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">
-                    {formatPrice(parseInt(item.price) * item.quantity)} VNĐ
-                  </p>
+                  <h4
+                    className="font-semibold text-gray-900 leading-tight"
+                    title={item.name}
+                  >
+                    {item.name.length > 45
+                      ? `${item.name.substring(0, 45)}...`
+                      : item.name}
+                  </h4>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-600 min-w-[70px]">
+                        Đơn giá:
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {formatPrice(parseInt(item.price))} VNĐ
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-600 min-w-[70px]">
+                        Số lượng:
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {item.quantity}
+                      </span>
+                    </div>
+                    {item.variant?.size && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-600 min-w-[70px]">
+                          Dung tích:
+                        </span>
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
+                          {item.variant.size}ml
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -396,8 +429,20 @@ function OrderDetailDialog({
             <Separator />
             <div className="flex justify-between items-center text-lg font-bold text-green-800">
               <span>Tổng cộng:</span>
-              <span>{formatPrice(order.totalAmount)} VNĐ</span>
+              <span>
+                {order.paymentMethod !== "cod"
+                  ? "0 VNĐ (Đã thanh toán)"
+                  : `${formatPrice(order.totalAmount)} VNĐ`}
+              </span>
             </div>
+            {order.paymentMethod !== "cod" && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-700 text-center">
+                  ✅ Khách hàng đã thanh toán {formatPrice(order.totalAmount)}{" "}
+                  VNĐ qua chuyển khoản
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -429,7 +474,6 @@ export default function OrdersPage() {
     start: "",
     end: "",
   });
-
 
   // Filter orders based on current filters
   useEffect(() => {

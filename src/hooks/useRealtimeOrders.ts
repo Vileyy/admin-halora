@@ -10,6 +10,10 @@ export interface OrderItem {
   quantity: number;
   category?: string;
   description?: string;
+  variant?: {
+    size?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface Order {

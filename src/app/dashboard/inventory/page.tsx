@@ -9,13 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProductForm from "@/components/inventory/ProductForm";
 import { ProductTable } from "@/components/inventory/ProductTable";
 import {
-  listenProducts,
   createProduct,
   updateProduct,
   updateVariantStock,
   deleteProduct,
-  getProductsWithLowStock,
 } from "@/services/productService";
+import {
+  listenProductsWithRealTimeSync,
+  getProductsWithLowStockFromProducts,
+  updateVariantStockInProducts,
+} from "@/services/productSyncService";
 import {
   Plus,
   Package,
@@ -42,9 +45,9 @@ export default function InventoryPage() {
   );
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
 
-  // Listen to products changes
+  // Listen to products changes from Firebase products branch (real-time)
   useEffect(() => {
-    const unsubscribe = listenProducts((data) => {
+    const unsubscribe = listenProductsWithRealTimeSync((data) => {
       // Ensure data is always an array with safe default
       const safeData = Array.isArray(data) ? data : [];
       setProducts(safeData);
@@ -54,11 +57,11 @@ export default function InventoryPage() {
     return () => unsubscribe();
   }, []);
 
-  // Load low stock items
+  // Load low stock items from products branch
   useEffect(() => {
     const loadLowStockItems = async () => {
       try {
-        const lowStock = await getProductsWithLowStock();
+        const lowStock = await getProductsWithLowStockFromProducts();
         // Ensure lowStock is always an array
         setLowStockItems(Array.isArray(lowStock) ? lowStock : []);
       } catch (error) {
@@ -171,7 +174,15 @@ export default function InventoryPage() {
     newStock: number
   ) => {
     try {
+      // Extract variant index from variantId (format: variant_productId_index)
+      const variantIndex = parseInt(variantId.split("_").pop() || "0");
+
+      // Update in products branch (source of truth)
+      await updateVariantStockInProducts(productId, variantIndex, newStock);
+
+      // Also update in inventory branch for backward compatibility
       await updateVariantStock(productId, variantId, newStock);
+
       toast.success("Đã cập nhật số lượng tồn kho!");
     } catch (error) {
       console.error("Error updating stock:", error);
