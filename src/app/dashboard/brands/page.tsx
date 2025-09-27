@@ -25,6 +25,14 @@ export default function BrandsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
+  const [resetPagination, setResetPagination] = useState(false);
+
+  // Reset pagination flag after it's been used
+  useEffect(() => {
+    if (resetPagination) {
+      setResetPagination(false);
+    }
+  }, [resetPagination]);
 
   useEffect(() => {
     const brandsRef = ref(database, "brands");
@@ -81,6 +89,7 @@ export default function BrandsPage() {
       await push(brandsRef, data);
       setLoading(false);
       setOpen(false);
+      setResetPagination(true);
       toast.success("Thêm thương hiệu thành công!");
     } catch {
       setLoading(false);
@@ -95,6 +104,7 @@ export default function BrandsPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       setLoading(false);
       setEditDialogOpen(null);
+      setResetPagination(true);
       toast.success("Cập nhật thương hiệu thành công!");
     } catch {
       setLoading(false);
@@ -108,6 +118,7 @@ export default function BrandsPage() {
       await remove(ref(database, `brands/${brandId}`));
       setLoading(false);
       setDeleteDialogOpen(null);
+      setResetPagination(true);
       toast.success("Xóa thương hiệu thành công!");
     } catch {
       setLoading(false);
@@ -161,6 +172,7 @@ export default function BrandsPage() {
               setEditDialogOpen={setEditDialogOpen}
               deleteDialogOpen={deleteDialogOpen}
               setDeleteDialogOpen={setDeleteDialogOpen}
+              resetPagination={resetPagination}
             />
           )}
         </CardContent>

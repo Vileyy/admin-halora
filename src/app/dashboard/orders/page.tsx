@@ -475,6 +475,11 @@ export default function OrdersPage() {
     end: "",
   });
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jumpToPage, setJumpToPage] = useState("");
+  const itemsPerPage = 4;
+
   // Filter orders based on current filters
   useEffect(() => {
     let filtered = [...orders];
@@ -523,13 +528,23 @@ export default function OrdersPage() {
     setFilteredOrders(filtered);
   }, [orders, statusFilter, searchTerm, dateRange]);
 
-  // Statistics được tính sẵn từ useRealtimeOrders hook
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, searchTerm, dateRange]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
       setUpdateLoading(true);
 
-      // Cập nhật vào users collection (đây là nguồn chính cho realtime)
+      // Cập nhật vào users collection
       const order = orders.find((o) => o.id === orderId);
       if (order) {
         const oldStatus = order.status;
@@ -573,6 +588,7 @@ export default function OrdersPage() {
     setStatusFilter("all");
     setSearchTerm("");
     setDateRange({ start: "", end: "" });
+    setCurrentPage(1); // Reset to first page when clearing filters
   };
 
   const getStatusColor = (status: string) => {
@@ -848,7 +864,7 @@ export default function OrdersPage() {
       </Card>
 
       <div className="space-y-4">
-        {filteredOrders.map((order) => (
+        {paginatedOrders.map((order) => (
           <Card
             key={order.id}
             className="hover:shadow-lg transition-shadow duration-200"
@@ -977,7 +993,7 @@ export default function OrdersPage() {
           </Card>
         ))}
 
-        {filteredOrders.length === 0 && (
+        {paginatedOrders.length === 0 && (
           <Card>
             <CardContent className="p-12">
               <div className="text-center">
@@ -1008,6 +1024,101 @@ export default function OrdersPage() {
           </Card>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredOrders.length > 0 && totalPages > 1 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+            <div className="text-sm text-gray-600">
+              Hiển thị {startIndex + 1}-
+              {Math.min(endIndex, filteredOrders.length)} /{" "}
+              {filteredOrders.length} đơn hàng
+            </div>
+
+            <div className="flex items-center space-x-3">
+              {/* Previous Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-3"
+              >
+                ← Trước
+              </Button>
+
+              {/* Page Numbers - Show max 5 pages */}
+              <div className="flex items-center space-x-1">
+                {(() => {
+                  const maxVisible = 5;
+                  const start = Math.max(
+                    1,
+                    currentPage - Math.floor(maxVisible / 2)
+                  );
+                  const end = Math.min(totalPages, start + maxVisible - 1);
+                  const pages = [];
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <Button
+                        key={i}
+                        variant={currentPage === i ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(i)}
+                        className={`h-8 w-8 p-0 ${
+                          currentPage === i
+                            ? "bg-blue-600 text-white font-bold"
+                            : "hover:bg-gray-100"
+                        }`}
+                      >
+                        {i}
+                      </Button>
+                    );
+                  }
+                  return pages;
+                })()}
+              </div>
+
+              {/* Next Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="h-8 px-3"
+              >
+                Sau →
+              </Button>
+
+              {/* Jump to Page Input */}
+              <div className="flex items-center space-x-2 ml-4">
+                <span className="text-sm text-gray-600">Đến trang:</span>
+                <Input
+                  type="number"
+                  min="1"
+                  max={totalPages}
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  placeholder="Số trang"
+                  className="w-20 h-8 text-center"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const targetPage = parseInt(jumpToPage);
+                      if (targetPage >= 1 && targetPage <= totalPages) {
+                        setCurrentPage(targetPage);
+                        setJumpToPage("");
+                      }
+                    }
+                  }}
+                />
+                <span className="text-sm text-gray-500">/ {totalPages}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

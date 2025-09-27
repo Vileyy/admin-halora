@@ -49,6 +49,7 @@ interface ProductTableProps {
     newStock: number
   ) => void;
   loading?: boolean;
+  resetPagination?: boolean;
 }
 
 export function ProductTable({
@@ -57,9 +58,15 @@ export function ProductTable({
   onDelete,
   onUpdateStock,
   loading,
+  resetPagination,
 }: ProductTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jumpToPage, setJumpToPage] = useState("");
+  const itemsPerPage = 5;
 
   const formatPrice = (price: number): string => {
     return new Intl.NumberFormat("vi-VN").format(price);
@@ -141,6 +148,24 @@ export function ProductTable({
         product?.supplier?.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
+  // Reset to page 1 when search query changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Reset to page 1 when resetPagination changes
+  React.useEffect(() => {
+    if (resetPagination) {
+      setCurrentPage(1);
+    }
+  }, [resetPagination]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
   if (loading) {
     return (
       <Card className="shadow-sm">
@@ -198,7 +223,7 @@ export function ProductTable({
       </CardHeader>
 
       <CardContent className="p-0">
-        {filteredProducts.length === 0 ? (
+        {paginatedProducts.length === 0 ? (
           <div className="text-center py-16 px-8">
             <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
               <Package className="w-12 h-12 text-gray-400" />
@@ -274,7 +299,7 @@ export function ProductTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product, index) => {
+                {paginatedProducts.map((product, index) => {
                   const totalStock = getTotalStock(product?.variants || []);
                   const totalValue = getTotalValue(product?.variants || []);
                   const primaryImage = product?.media?.find(
@@ -691,6 +716,101 @@ export function ProductTable({
                 })}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {filteredProducts.length > 0 && totalPages > 1 && (
+          <div className="mt-6 p-4 border-t bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Hiển thị {startIndex + 1}-
+                {Math.min(endIndex, filteredProducts.length)} /{" "}
+                {filteredProducts.length} sản phẩm
+              </div>
+
+              <div className="flex items-center space-x-3">
+                {/* Previous Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 px-3"
+                >
+                  ← Trước
+                </Button>
+
+                {/* Page Numbers - Show max 5 pages */}
+                <div className="flex items-center space-x-1">
+                  {(() => {
+                    const maxVisible = 5;
+                    const start = Math.max(
+                      1,
+                      currentPage - Math.floor(maxVisible / 2)
+                    );
+                    const end = Math.min(totalPages, start + maxVisible - 1);
+                    const pages = [];
+
+                    for (let i = start; i <= end; i++) {
+                      pages.push(
+                        <Button
+                          key={i}
+                          variant={currentPage === i ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(i)}
+                          className={`h-8 w-8 p-0 ${
+                            currentPage === i
+                              ? "bg-blue-600 text-white font-bold"
+                              : "hover:bg-gray-100"
+                          }`}
+                        >
+                          {i}
+                        </Button>
+                      );
+                    }
+                    return pages;
+                  })()}
+                </div>
+
+                {/* Next Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="h-8 px-3"
+                >
+                  Sau →
+                </Button>
+
+                {/* Jump to Page Input */}
+                <div className="flex items-center space-x-2 ml-4">
+                  <span className="text-sm text-gray-600">Đến trang:</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={totalPages}
+                    value={jumpToPage}
+                    onChange={(e) => setJumpToPage(e.target.value)}
+                    placeholder="Số trang"
+                    className="w-20 h-8 text-center"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const targetPage = parseInt(jumpToPage);
+                        if (targetPage >= 1 && targetPage <= totalPages) {
+                          setCurrentPage(targetPage);
+                          setJumpToPage("");
+                        }
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-gray-500">/ {totalPages}</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>

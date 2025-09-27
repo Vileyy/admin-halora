@@ -21,9 +21,7 @@ import {
   IconPackage,
 } from "@tabler/icons-react";
 
-import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
-import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -34,13 +32,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/useAuth";
 
 const data = {
-  user: {
-    name: "Viley",
-    email: "viley@gmail.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
       title: "Quản lý sản phẩm",
@@ -211,6 +205,8 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
   onMenuClick?: (view: string) => void;
 }) {
+  const { user, userData, loading } = useAuth();
+
   const handleNavClick = (
     title: string,
     subItem?: string,
@@ -280,7 +276,11 @@ export function AppSidebar({
             >
               <a href="#">
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Doãn Quốc Hiếu</span>
+                <span className="text-base font-semibold">
+                  {loading
+                    ? "Đang tải..."
+                    : user?.displayName || userData?.email || "Admin"}
+                </span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -292,7 +292,15 @@ export function AppSidebar({
         <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        {user && (
+          <NavUser
+            user={{
+              name: user.displayName || user.email || "Admin",
+              email: user.email || "",
+              avatar: user.photoURL || "/default-avatar.svg",
+            }}
+          />
+        )}
       </SidebarFooter>
     </Sidebar>
   );

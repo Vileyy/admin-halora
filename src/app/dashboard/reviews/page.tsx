@@ -235,6 +235,11 @@ export default function ReviewsPage() {
     end: "",
   });
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jumpToPage, setJumpToPage] = useState("");
+  const itemsPerPage = 4;
+
   // Stats
   const [stats, setStats] = useState<ReviewStats>({
     total: 0,
@@ -366,10 +371,22 @@ export default function ReviewsPage() {
     setFilteredReviews(filtered);
   }, [reviews, ratingFilter, searchTerm, dateRange]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [ratingFilter, searchTerm, dateRange]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReviews = filteredReviews.slice(startIndex, endIndex);
+
   const clearFilters = () => {
     setRatingFilter("all");
     setSearchTerm("");
     setDateRange({ start: "", end: "" });
+    setCurrentPage(1); // Reset to first page when clearing filters
   };
 
   const formatDate = (dateString: string) => {
@@ -640,7 +657,7 @@ export default function ReviewsPage() {
 
       {/* Reviews List */}
       <div className="space-y-4">
-        {filteredReviews.map((review) => (
+        {paginatedReviews.map((review) => (
           <Card
             key={review.id}
             className="hover:shadow-lg transition-shadow duration-200"
@@ -756,7 +773,7 @@ export default function ReviewsPage() {
           </Card>
         ))}
 
-        {filteredReviews.length === 0 && (
+        {paginatedReviews.length === 0 && (
           <Card>
             <CardContent className="p-12">
               <div className="text-center">
@@ -787,6 +804,101 @@ export default function ReviewsPage() {
           </Card>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredReviews.length > 0 && totalPages > 1 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+            <div className="text-sm text-gray-600">
+              Hiển thị {startIndex + 1}-
+              {Math.min(endIndex, filteredReviews.length)} /{" "}
+              {filteredReviews.length} đánh giá
+            </div>
+
+            <div className="flex items-center space-x-3">
+              {/* Previous Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-3"
+              >
+                ← Trước
+              </Button>
+
+              {/* Page Numbers - Show max 5 pages */}
+              <div className="flex items-center space-x-1">
+                {(() => {
+                  const maxVisible = 5;
+                  const start = Math.max(
+                    1,
+                    currentPage - Math.floor(maxVisible / 2)
+                  );
+                  const end = Math.min(totalPages, start + maxVisible - 1);
+                  const pages = [];
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <Button
+                        key={i}
+                        variant={currentPage === i ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(i)}
+                        className={`h-8 w-8 p-0 ${
+                          currentPage === i
+                            ? "bg-blue-600 text-white font-bold"
+                            : "hover:bg-gray-100"
+                        }`}
+                      >
+                        {i}
+                      </Button>
+                    );
+                  }
+                  return pages;
+                })()}
+              </div>
+
+              {/* Next Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="h-8 px-3"
+              >
+                Sau →
+              </Button>
+
+              {/* Jump to Page Input */}
+              <div className="flex items-center space-x-2 ml-4">
+                <span className="text-sm text-gray-600">Đến trang:</span>
+                <Input
+                  type="number"
+                  min="1"
+                  max={totalPages}
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  placeholder="Số trang"
+                  className="w-20 h-8 text-center"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const targetPage = parseInt(jumpToPage);
+                      if (targetPage >= 1 && targetPage <= totalPages) {
+                        setCurrentPage(targetPage);
+                        setJumpToPage("");
+                      }
+                    }
+                  }}
+                />
+                <span className="text-sm text-gray-500">/ {totalPages}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

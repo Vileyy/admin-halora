@@ -44,6 +44,14 @@ export default function InventoryPage() {
     null
   );
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
+  const [resetPagination, setResetPagination] = useState(false);
+
+  // Reset pagination flag after it's been used
+  useEffect(() => {
+    if (resetPagination) {
+      setResetPagination(false);
+    }
+  }, [resetPagination]);
 
   // Listen to products changes from Firebase products branch (real-time)
   useEffect(() => {
@@ -404,7 +412,11 @@ export default function InventoryPage() {
           }
         >
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
-            <Tabs defaultValue="all" className="space-y-4">
+            <Tabs
+              defaultValue="all"
+              className="space-y-4"
+              onValueChange={() => setResetPagination(true)}
+            >
               <div className="flex items-center justify-between">
                 <TabsList className="bg-slate-100/80 p-1 rounded-lg shadow-inner">
                   <TabsTrigger
@@ -435,6 +447,7 @@ export default function InventoryPage() {
                   onDelete={handleDeleteProduct}
                   onUpdateStock={handleUpdateStock}
                   loading={loading}
+                  resetPagination={resetPagination}
                 />
               </TabsContent>
 
@@ -445,6 +458,7 @@ export default function InventoryPage() {
                   onDelete={handleDeleteProduct}
                   onUpdateStock={handleUpdateStock}
                   loading={loading}
+                  resetPagination={resetPagination}
                 />
               </TabsContent>
 
@@ -455,6 +469,7 @@ export default function InventoryPage() {
                   onDelete={handleDeleteProduct}
                   onUpdateStock={handleUpdateStock}
                   loading={loading}
+                  resetPagination={resetPagination}
                 />
               </TabsContent>
             </Tabs>
