@@ -93,6 +93,7 @@ interface UserData {
   photoURL: string;
   avatar: string;
   status: string;
+  role?: "admin" | "user";
   cart: UserCartItem[];
   orders: Record<string, UserOrder>;
 }
@@ -177,6 +178,7 @@ function EditUserDialog({
     address: user.address || "",
     gender: user.gender || "other",
     status: user.status || "active",
+    role: user.role || "user",
   });
   const [isOpen, setIsOpen] = useState(false);
 
@@ -296,6 +298,25 @@ function EditUserDialog({
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <Label htmlFor="role" className="mb-2">
+              Vai trò
+            </Label>
+            <Select
+              value={formData.role}
+              onValueChange={(value) =>
+                setFormData({ ...formData, role: value as "admin" | "user" })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">Người dùng</SelectItem>
+                <SelectItem value="admin">Quản trị viên</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex justify-end space-x-2 pt-4">
             <Button
               type="button"
@@ -334,15 +355,27 @@ function UserDetailDialog({ user }: { user: UserData }) {
             <CardTitle className="text-xl font-bold">
               {user.displayName || "Không có tên"}
             </CardTitle>
-            <Badge
-              className={getStatusColor(user.status) + " border px-3 py-1 ml-2"}
-            >
-              {statusOptions.find((o) => o.value === user.status)?.icon}
-              <span className="ml-1">
-                {statusOptions.find((o) => o.value === user.status)?.label ||
-                  user.status}
-              </span>
-            </Badge>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge
+                className={getStatusColor(user.status) + " border px-3 py-1"}
+              >
+                {statusOptions.find((o) => o.value === user.status)?.icon}
+                <span className="ml-1">
+                  {statusOptions.find((o) => o.value === user.status)?.label ||
+                    user.status}
+                </span>
+              </Badge>
+              <Badge
+                className={
+                  (user.role === "admin"
+                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200") +
+                  " border px-3 py-1"
+                }
+              >
+                {user.role === "admin" ? "Quản trị viên" : "Người dùng"}
+              </Badge>
+            </div>
             <div className="flex items-center gap-2 mt-2 text-gray-600">
               <IconMail className="w-4 h-4" />
               <span>{user.email || "Không có email"}</span>
@@ -463,7 +496,7 @@ function UserDetailDialog({ user }: { user: UserData }) {
   );
 }
 
-export default function UsersPage() {
+export default function UsersPage({ role }: { role?: string } = {}) {
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -514,8 +547,20 @@ export default function UsersPage() {
           (user.phone || "").includes(searchTerm)
       );
     }
+    // Filter by role if specified
+    if (role) {
+      if (role === "admin") {
+        // For admin view, show only users with admin role
+        filtered = filtered.filter((user) => user.role === "admin");
+      } else if (role === "user") {
+        // For user view, show only users with user role or no role specified (default to user)
+        filtered = filtered.filter(
+          (user) => !user.role || user.role === "user"
+        );
+      }
+    }
     setFilteredUsers(filtered);
-  }, [users, searchTerm]);
+  }, [users, searchTerm, role]);
 
   // Reset to page 1 when search term changes
   useEffect(() => {
@@ -603,17 +648,50 @@ export default function UsersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Quản lý người dùng
+            {role === "admin" ? "Quản lý quản trị viên" : "Quản lý người dùng"}
           </h1>
           <p className="text-gray-600 mt-1">
-            Theo dõi và quản lý tất cả người dùng
+            {role === "admin"
+              ? "Theo dõi và quản lý tất cả quản trị viên"
+              : "Theo dõi và quản lý tất cả người dùng"}
           </p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-right">
-            <p className="text-sm text-gray-600">Tổng người dùng</p>
-            <p className="text-2xl font-bold text-blue-600">{users.length}</p>
+            <p className="text-sm text-gray-600">
+              {role === "admin" ? "Tổng quản trị viên" : "Tổng người dùng"}
+            </p>
+            <p className="text-2xl font-bold text-blue-600">
+              {filteredUsers.length}
+            </p>
           </div>
+          {role === "admin" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Create a sample admin user for testing
+                const sampleAdmin = {
+                  id: "sample-admin-" + Date.now(),
+                  displayName: "Admin Mẫu",
+                  email: "admin@example.com",
+                  phone: "0123456789",
+                  address: "Địa chỉ admin",
+                  gender: "other",
+                  photoURL: "/default-avatar.svg",
+                  avatar: "/default-avatar.svg",
+                  status: "active",
+                  role: "admin" as const,
+                  cart: [],
+                  orders: {},
+                };
+                setUsers((prev) => [...prev, sampleAdmin]);
+                toast.success("Đã tạo admin mẫu để test!");
+              }}
+            >
+              Tạo Admin Mẫu
+            </Button>
+          )}
         </div>
       </div>
       <Card className="mb-6">
@@ -642,7 +720,7 @@ export default function UsersPage() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">
                 Hiển thị {filteredUsers.length} trong tổng số {users.length}{" "}
-                người dùng
+                {role === "admin" ? "quản trị viên" : "người dùng"}
               </p>
             </div>
           </div>
@@ -683,6 +761,18 @@ export default function UsersPage() {
                       <span className="text-sm">
                         {user.address || "Không có địa chỉ"}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge
+                        className={
+                          (user.role === "admin"
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200") +
+                          " border px-2 py-1 text-xs"
+                        }
+                      >
+                        {user.role === "admin" ? "Quản trị viên" : "Người dùng"}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -791,13 +881,21 @@ export default function UsersPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {users.length === 0
-                    ? "Chưa có người dùng nào"
-                    : "Không tìm thấy người dùng"}
+                    ? `Chưa có ${
+                        role === "admin" ? "quản trị viên" : "người dùng"
+                      } nào`
+                    : `Không tìm thấy ${
+                        role === "admin" ? "quản trị viên" : "người dùng"
+                      }`}
                 </h3>
                 <p className="text-gray-600">
                   {users.length === 0
-                    ? "Khi có người dùng mới, họ sẽ xuất hiện ở đây"
-                    : "Thử điều chỉnh bộ lọc để tìm kiếm người dùng khác"}
+                    ? `Khi có ${
+                        role === "admin" ? "quản trị viên" : "người dùng"
+                      } mới, họ sẽ xuất hiện ở đây`
+                    : `Thử điều chỉnh bộ lọc để tìm kiếm ${
+                        role === "admin" ? "quản trị viên" : "người dùng"
+                      } khác`}
                 </p>
                 {users.length > 0 && (
                   <Button
@@ -821,7 +919,8 @@ export default function UsersPage() {
             <div className="text-sm text-gray-600">
               Hiển thị {startIndex + 1}-
               {Math.min(endIndex, filteredUsers.length)} /{" "}
-              {filteredUsers.length} người dùng
+              {filteredUsers.length}{" "}
+              {role === "admin" ? "quản trị viên" : "người dùng"}
             </div>
 
             <div className="flex items-center space-x-3">

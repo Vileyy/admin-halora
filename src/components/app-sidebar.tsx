@@ -87,6 +87,18 @@ const data = {
       title: "Quản lý người dùng",
       url: "#",
       icon: IconUsers,
+      items: [
+        {
+          title: "Người dùng",
+          url: "#",
+          value: "users",
+        },
+        {
+          title: "Quản trị viên",
+          url: "#",
+          value: "admins",
+        },
+      ],
     },
     {
       title: "Quản lý doanh thu",
@@ -230,7 +242,13 @@ export function AppSidebar({
       onMenuClick?.("orders");
     }
     if (title === "Quản lý người dùng") {
-      onMenuClick?.("users");
+      if (subItem === "Người dùng" || subValue === "users") {
+        onMenuClick?.("users");
+      } else if (subItem === "Quản trị viên" || subValue === "admins") {
+        onMenuClick?.("admins");
+      } else {
+        onMenuClick?.("users");
+      }
     }
     if (title === "Quản lý doanh thu") {
       onMenuClick?.("revenue");

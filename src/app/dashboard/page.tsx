@@ -49,7 +49,9 @@ export default function Page() {
             ) : currentView === "orders" ? (
               <OrdersPage />
             ) : currentView === "users" ? (
-              <UsersPage />
+              <UsersPage role="user" />
+            ) : currentView === "admins" ? (
+              <UsersPage role="admin" />
             ) : currentView === "revenue" ? (
               <RevenuePage />
             ) : currentView === "banners" ? (
