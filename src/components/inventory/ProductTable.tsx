@@ -336,7 +336,7 @@ export function ProductTable({
 
                       <TableCell className="px-6 py-4">
                         <div className="space-y-2">
-                          <h3 className="font-semibold text-gray-900 text-base leading-tight line-clamp-1">
+                          <h3 className="font-semibold text-gray-900 text-base leading-tight break-words whitespace-normal">
                             {product?.name || "Sản phẩm chưa đặt tên"}
                           </h3>
                           <p className="text-sm text-gray-600 leading-relaxed">
@@ -368,7 +368,11 @@ export function ProductTable({
                           className="px-3 py-1.5 text-sm font-medium bg-blue-50 text-blue-700 border-blue-200"
                         >
                           <Tag className="w-3.5 h-3.5 mr-1.5" />
-                          {product?.category || "Chưa phân loại"}
+                          {product?.category === "new_product"
+                            ? "Sản phẩm mới"
+                            : product?.category === "FlashDeals"
+                            ? "Flash Deals"
+                            : product?.category || "Chưa phân loại"}
                         </Badge>
                       </TableCell>
 

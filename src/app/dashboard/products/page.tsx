@@ -82,7 +82,38 @@ interface InventoryProduct {
   }>;
 }
 
-// FlashDeal interfaces không còn cần thiết vì giờ lưu vào products
+// Helper function to filter available products to avoid duplication
+function filterAvailableProducts(
+  allInventoryProducts: InventoryProduct[],
+  existingProducts: Product[],
+  mode: "flashDeal" | "newProduct"
+): InventoryProduct[] {
+  // Get all product names and originalProductIds that already exist in ANY category
+  const existingProductNames = new Set(
+    existingProducts.map((p) => p.name.toLowerCase())
+  );
+
+  const existingOriginalProductIds = new Set(
+    existingProducts
+      .filter((p) => p.originalProductId)
+      .map((p) => p.originalProductId!)
+  );
+
+  // Filter out products that already exist as products (regardless of category)
+  // Check both by name and by originalProductId to prevent duplicates
+  const filtered = allInventoryProducts.filter((inventoryProduct) => {
+    const nameExists = existingProductNames.has(
+      inventoryProduct.name.toLowerCase()
+    );
+    const idExists = existingOriginalProductIds.has(inventoryProduct.id);
+    return !nameExists && !idExists;
+  });
+
+  console.log(
+    `[${mode} Filter] Total inventory: ${allInventoryProducts.length}, Already exists by name: ${existingProductNames.size}, Already exists by ID: ${existingOriginalProductIds.size}, Available: ${filtered.length}`
+  );
+  return filtered;
+}
 
 function ProductForm({
   onSubmit,
@@ -446,6 +477,10 @@ function NewProductForm({
     InventoryProduct[]
   >([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
+  const [filteredInventoryProducts, setFilteredInventoryProducts] = useState<
+    InventoryProduct[]
+  >([]);
 
   // Load inventory products
   useEffect(() => {
@@ -502,10 +537,55 @@ function NewProductForm({
     return () => unsubscribe();
   }, []);
 
+  // Load existing products (all products from both categories)
+  useEffect(() => {
+    const productsRef = ref(database, "products");
+    const unsubscribe = onValue(productsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setExistingProducts([]);
+        return;
+      }
+
+      const allProducts = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "name" in value &&
+            "category" in value &&
+            "description" in value &&
+            "image" in value &&
+            "variants" in value
+          ) {
+            return {
+              id,
+              ...value,
+            } as Product;
+          }
+          return null;
+        })
+        .filter((item): item is Product => item !== null);
+
+      setExistingProducts(allProducts);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Filter inventory products to avoid duplication
+  useEffect(() => {
+    const filtered = filterAvailableProducts(
+      inventoryProducts,
+      existingProducts,
+      "newProduct"
+    );
+    setFilteredInventoryProducts(filtered);
+  }, [inventoryProducts, existingProducts]);
+
   // Handle product selection
   const handleProductChange = (productId: string) => {
     setSelectedProductId(productId);
-    const product = inventoryProducts.find((p) => p.id === productId);
+    const product = filteredInventoryProducts.find((p) => p.id === productId);
     if (product) {
       setSelectedProduct(product);
 
@@ -552,7 +632,7 @@ function NewProductForm({
     // Tạo sản phẩm mới từ sản phẩm kho - lưu vào nhánh products
     const productData = {
       name: selectedProduct.name,
-      category: "new_product", // Tự động set category là new_product
+      category: "new_product",
       description: customDescription,
       image:
         customImages.length > 0
@@ -594,7 +674,7 @@ function NewProductForm({
             <SelectValue placeholder="Chọn sản phẩm từ kho hàng..." />
           </SelectTrigger>
           <SelectContent className="max-h-60">
-            {inventoryProducts.map((product) => (
+            {filteredInventoryProducts.map((product) => (
               <SelectItem key={product.id} value={product.id}>
                 <div className="flex items-center gap-3">
                   {product.media && product.media[0] && (
@@ -793,14 +873,16 @@ function FlashDealsForm({
   const [flashDealPrices, setFlashDealPrices] = useState<{
     [key: string]: number;
   }>({});
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
   const [customDescription, setCustomDescription] = useState<string>("");
   const [customImages, setCustomImages] = useState<string[]>([]);
   const [inventoryProducts, setInventoryProducts] = useState<
     InventoryProduct[]
   >([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
+  const [filteredInventoryProducts, setFilteredInventoryProducts] = useState<
+    InventoryProduct[]
+  >([]);
 
   // Load inventory products
   useEffect(() => {
@@ -857,10 +939,55 @@ function FlashDealsForm({
     return () => unsubscribe();
   }, []);
 
+  // Load existing products (all products from both categories)
+  useEffect(() => {
+    const productsRef = ref(database, "products");
+    const unsubscribe = onValue(productsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setExistingProducts([]);
+        return;
+      }
+
+      const allProducts = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            "name" in value &&
+            "category" in value &&
+            "description" in value &&
+            "image" in value &&
+            "variants" in value
+          ) {
+            return {
+              id,
+              ...value,
+            } as Product;
+          }
+          return null;
+        })
+        .filter((item): item is Product => item !== null);
+
+      setExistingProducts(allProducts);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Filter inventory products to avoid duplication
+  useEffect(() => {
+    const filtered = filterAvailableProducts(
+      inventoryProducts,
+      existingProducts,
+      "flashDeal"
+    );
+    setFilteredInventoryProducts(filtered);
+  }, [inventoryProducts, existingProducts]);
+
   // Handle product selection
   const handleProductChange = (productId: string) => {
     setSelectedProductId(productId);
-    const product = inventoryProducts.find((p) => p.id === productId);
+    const product = filteredInventoryProducts.find((p) => p.id === productId);
     if (product) {
       setSelectedProduct(product);
 
@@ -979,7 +1106,7 @@ function FlashDealsForm({
             <SelectValue placeholder="Chọn sản phẩm từ kho hàng..." />
           </SelectTrigger>
           <SelectContent className="max-h-60">
-            {inventoryProducts.map((product) => (
+            {filteredInventoryProducts.map((product) => (
               <SelectItem key={product.id} value={product.id}>
                 <div className="flex items-center gap-3">
                   {product.media && product.media[0] && (
@@ -1134,31 +1261,6 @@ function FlashDealsForm({
           )}
         </div>
       )}
-
-      {/* Date Range */}
-      <div className="space-y-3">
-        <Label className="text-base font-medium">
-          Thời gian áp dụng (tùy chọn)
-        </Label>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm">Ngày bắt đầu</Label>
-            <Input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Ngày kết thúc</Label>
-            <Input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Submit Button */}
       <div className="pt-4">
@@ -1564,7 +1666,7 @@ export default function ProductsPage({ category }: { category?: string }) {
           const productIdForStock = product?.originalProductId || productId;
           return getStockQuantity(productIdForStock, variantSize);
         }}
-          />
+      />
 
       {/* Controls Section - Bộ lọc */}
       <Card className="mb-4 mt-4">

@@ -25,9 +25,22 @@ import {
   AlertTriangle,
   TrendingUp,
   DollarSign,
+  Search,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NoSSR } from "@/components/ui/no-ssr";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { database } from "@/lib/firebase";
+import { ref, onValue } from "firebase/database";
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -45,6 +58,14 @@ export default function InventoryPage() {
   );
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
   const [resetPagination, setResetPagination] = useState(false);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedStockStatus, setSelectedStockStatus] = useState<string>("all");
+  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Reset pagination flag after it's been used
   useEffect(() => {
@@ -84,49 +105,151 @@ export default function InventoryPage() {
     return () => clearInterval(interval);
   }, [products]);
 
-  // Calculate inventory statistics with safe checks
-  const stats = {
-    totalProducts: products?.length || 0,
-    totalVariants:
-      products?.reduce(
-        (sum, product) => sum + (product?.variants?.length || 0),
-        0
-      ) || 0,
-    totalStock:
-      products?.reduce(
-        (sum, product) =>
-          sum +
-          (product?.variants?.reduce(
-            (variantSum, variant) => variantSum + (variant?.stockQty || 0),
-            0
-          ) || 0),
-        0
-      ) || 0,
-    totalValue:
-      products?.reduce(
-        (sum, product) =>
-          sum +
-          (product?.variants?.reduce(
-            (variantSum, variant) =>
-              variantSum + (variant?.price || 0) * (variant?.stockQty || 0),
-            0
-          ) || 0),
-        0
-      ) || 0,
-    lowStockCount: lowStockItems?.length || 0,
-    outOfStockCount:
-      products?.reduce(
-        (sum, product) =>
-          sum +
-          (product?.variants?.filter(
-            (variant) => (variant?.stockQty || 0) === 0
-          )?.length || 0),
-        0
-      ) || 0,
-  };
+  // Load brands for filter
+  useEffect(() => {
+    const brandsRef = ref(database, "brands");
+    const unsubscribe = onValue(brandsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setBrands([]);
+      const brandsArray = Object.entries(data)
+        .map(([id, value]: [string, unknown]) => {
+          if (typeof value === "object" && value !== null) {
+            const v = value as { name?: string };
+            return {
+              id,
+              name: v.name || `Brand ${id.slice(-4)}`,
+            };
+          }
+          return null;
+        })
+        .filter((item): item is { id: string; name: string } => item !== null);
+      setBrands(brandsArray);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Extract unique categories from products
+  useEffect(() => {
+    const uniqueCategories = [
+      ...new Set(products.map((p) => p.category).filter(Boolean)),
+    ];
+    setCategories(uniqueCategories);
+  }, [products]);
 
   const formatPrice = (price: number): string => {
     return new Intl.NumberFormat("vi-VN").format(price);
+  };
+
+  // Filter products based on search and filter criteria
+  const filteredProducts = React.useMemo(() => {
+    let filtered = products;
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.description
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          product.supplier?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by brand
+    if (selectedBrand !== "all") {
+      filtered = filtered.filter(
+        (product) => product.brandId === selectedBrand
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(
+        (product) => product.category === selectedCategory
+      );
+    }
+
+    // Filter by stock status
+    if (selectedStockStatus !== "all") {
+      filtered = filtered.filter((product) => {
+        const hasVariantsWithStock = product.variants?.some((variant) => {
+          const stockQty = variant.stockQty || 0;
+          switch (selectedStockStatus) {
+            case "in_stock":
+              return stockQty > 10;
+            case "low_stock":
+              return stockQty > 0 && stockQty <= 10;
+            case "out_of_stock":
+              return stockQty === 0;
+            default:
+              return true;
+          }
+        });
+        return hasVariantsWithStock;
+      });
+    }
+
+    return filtered;
+  }, [
+    products,
+    searchTerm,
+    selectedBrand,
+    selectedCategory,
+    selectedStockStatus,
+  ]);
+
+  // Calculate inventory statistics with safe checks (based on filtered products)
+  const stats = React.useMemo(
+    () => ({
+      totalProducts: filteredProducts?.length || 0,
+      totalVariants:
+        filteredProducts?.reduce(
+          (sum, product) => sum + (product?.variants?.length || 0),
+          0
+        ) || 0,
+      totalStock:
+        filteredProducts?.reduce(
+          (sum, product) =>
+            sum +
+            (product?.variants?.reduce(
+              (variantSum, variant) => variantSum + (variant?.stockQty || 0),
+              0
+            ) || 0),
+          0
+        ) || 0,
+      totalValue:
+        filteredProducts?.reduce(
+          (sum, product) =>
+            sum +
+            (product?.variants?.reduce(
+              (variantSum, variant) =>
+                variantSum + (variant?.price || 0) * (variant?.stockQty || 0),
+              0
+            ) || 0),
+          0
+        ) || 0,
+      lowStockCount:
+        filteredProducts?.filter((product) =>
+          product?.variants?.some(
+            (variant) =>
+              (variant?.stockQty || 0) > 0 && (variant?.stockQty || 0) < 10
+          )
+        )?.length || 0,
+      outOfStockCount:
+        filteredProducts?.filter((product) =>
+          product?.variants?.some((variant) => (variant?.stockQty || 0) === 0)
+        )?.length || 0,
+    }),
+    [filteredProducts]
+  );
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedBrand("all");
+    setSelectedCategory("all");
+    setSelectedStockStatus("all");
   };
 
   const handleAddProduct = () => {
@@ -226,7 +349,7 @@ export default function InventoryPage() {
   // Filter products for different tabs with safe checks
   const getProductsWithLowStockVariants = () => {
     return (
-      products?.filter((product) =>
+      filteredProducts?.filter((product) =>
         product?.variants?.some(
           (variant) =>
             (variant?.stockQty || 0) > 0 && (variant?.stockQty || 0) < 10
@@ -237,7 +360,7 @@ export default function InventoryPage() {
 
   const getProductsWithOutOfStockVariants = () => {
     return (
-      products?.filter((product) =>
+      filteredProducts?.filter((product) =>
         product?.variants?.some((variant) => (variant?.stockQty || 0) === 0)
       ) || []
     );
@@ -396,6 +519,114 @@ export default function InventoryPage() {
           </div>
         </NoSSR>
 
+        {/* Filter Section */}
+        <Card className="bg-white/80 backdrop-blur-sm border border-white/20 shadow-lg">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="flex items-center gap-4 flex-1">
+                {/* Search Input */}
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Tìm kiếm sản phẩm..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Brand Filter */}
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={selectedBrand}
+                    onValueChange={setSelectedBrand}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Thương hiệu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả thương hiệu</SelectItem>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Category Filter */}
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
+                  >
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="Danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả danh mục</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category === "new_product"
+                            ? "Sản phẩm mới"
+                            // : category === "FlashDeals"
+                            // ? "FlashDeals"
+                            : category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Stock Status Filter */}
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={selectedStockStatus}
+                    onValueChange={setSelectedStockStatus}
+                  >
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="Tồn kho" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="in_stock">Còn hàng</SelectItem>
+                      <SelectItem value="low_stock">Sắp hết</SelectItem>
+                      <SelectItem value="out_of_stock">Hết hàng</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Clear Filters Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-9 text-xs"
+              >
+                Xóa bộ lọc
+              </Button>
+            </div>
+
+            {/* Filter Summary */}
+            <div className="flex justify-between items-center mt-3 pt-3 border-t text-sm text-gray-600">
+              <span>
+                Hiển thị {filteredProducts.length} / {products.length} sản phẩm
+              </span>
+              {(searchTerm ||
+                selectedBrand !== "all" ||
+                selectedCategory !== "all" ||
+                selectedStockStatus !== "all") && (
+                <span className="text-blue-600 font-medium">
+                  Đang áp dụng bộ lọc
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Content Tabs */}
         <NoSSR
           fallback={
@@ -423,26 +654,26 @@ export default function InventoryPage() {
                     value="all"
                     className="data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-slate-900 rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
                   >
-                    Tất cả ({products?.length || 0})
+                    Tất cả ({filteredProducts?.length || 0})
                   </TabsTrigger>
                   <TabsTrigger
                     value="low-stock"
                     className="data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
                   >
-                    Sắp hết hàng ({getProductsWithLowStockVariants().length})
+                    Sắp hết hàng ({stats.lowStockCount})
                   </TabsTrigger>
                   <TabsTrigger
                     value="out-of-stock"
                     className="data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
                   >
-                    Hết hàng ({getProductsWithOutOfStockVariants().length})
+                    Hết hàng ({stats.outOfStockCount})
                   </TabsTrigger>
                 </TabsList>
               </div>
 
               <TabsContent value="all">
                 <ProductTable
-                  products={products || []}
+                  products={filteredProducts || []}
                   onEdit={handleEditProduct}
                   onDelete={handleDeleteProduct}
                   onUpdateStock={handleUpdateStock}
