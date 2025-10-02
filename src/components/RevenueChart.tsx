@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -17,12 +17,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   IconTrendingUp,
   IconShoppingCart,
   IconPackage,
   IconCoin,
 } from "@tabler/icons-react";
-import { useRealtimeRevenue, MonthlyData } from "@/hooks/useRealtimeRevenue";
+import { useRealtimeRevenue } from "@/hooks/useRealtimeRevenue";
+
+type ChartDataItem = {
+  [key: string]: string | number;
+  revenue: number;
+  orders: number;
+  products: number;
+};
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat("vi-VN").format(price);
@@ -38,8 +52,8 @@ const formatShortPrice = (price: number) => {
   return formatPrice(price);
 };
 
-// Component biểu đồ doanh thu theo tháng
-function MonthlyRevenueChart({ data }: { data: MonthlyData[] }) {
+// Component biểu đồ doanh thu theo tháng (AreaChart - cho năm)
+function MonthlyRevenueChart({ data, dataKey }: { data: ChartDataItem[]; dataKey: string }) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={data}>
@@ -50,7 +64,7 @@ function MonthlyRevenueChart({ data }: { data: MonthlyData[] }) {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6B7280" />
+        <XAxis dataKey={dataKey} tick={{ fontSize: 12 }} stroke="#6B7280" />
         <YAxis
           tick={{ fontSize: 12 }}
           stroke="#6B7280"
@@ -90,13 +104,56 @@ function MonthlyRevenueChart({ data }: { data: MonthlyData[] }) {
   );
 }
 
-// Component biểu đồ số đơn hàng theo tháng
-function MonthlyOrdersChart({ data }: { data: MonthlyData[] }) {
+// Component biểu đồ cột doanh thu theo tháng
+function MonthlyRevenueBarChart({ data, dataKey }: { data: ChartDataItem[]; dataKey: string }) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6B7280" />
+        <XAxis 
+          dataKey={dataKey}
+          tick={{ fontSize: 12 }}
+          stroke="#6B7280"
+        />
+        <YAxis 
+          tickFormatter={formatShortPrice}
+          tick={{ fontSize: 12 }}
+          stroke="#6B7280"
+        />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="bg-white p-3 border rounded-lg shadow-lg">
+                  <p className="font-medium">{label}</p>
+                  <p className="text-blue-600">
+                    Doanh thu: {formatPrice(payload[0].value as number)} VNĐ
+                  </p>
+                  <p className="text-gray-600">
+                    Đơn hàng: {payload[0].payload.orders}
+                  </p>
+                  <p className="text-gray-600">
+                    Sản phẩm: {payload[0].payload.products}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          }}
+        />
+        <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Component biểu đồ số đơn hàng theo tháng
+function MonthlyOrdersChart({ data, dataKey }: { data: ChartDataItem[]; dataKey: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+        <XAxis dataKey={dataKey} tick={{ fontSize: 12 }} stroke="#6B7280" />
         <YAxis tick={{ fontSize: 12 }} stroke="#6B7280" />
         <Tooltip
           content={({ active, payload, label }) => {
@@ -104,6 +161,92 @@ function MonthlyOrdersChart({ data }: { data: MonthlyData[] }) {
               return (
                 <div className="bg-white p-3 border rounded-lg shadow-lg">
                   <p className="font-medium">{label}</p>
+                  <p className="text-green-600">Đơn hàng: {payload[0].value}</p>
+                  <p className="text-gray-600">
+                    Sản phẩm: {payload[0].payload.products}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          }}
+        />
+        <Bar dataKey="orders" fill="#10B981" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Component biểu đồ cột doanh thu theo ngày
+function DailyRevenueChart({ data, dataKey }: { data: ChartDataItem[]; dataKey: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+        <XAxis 
+          dataKey={dataKey}
+          angle={-45}
+          textAnchor="end"
+          height={80}
+          tick={{ fontSize: 11 }}
+          stroke="#6B7280"
+        />
+        <YAxis 
+          tickFormatter={formatShortPrice}
+          tick={{ fontSize: 12 }}
+          stroke="#6B7280"
+        />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="bg-white p-3 border rounded-lg shadow-lg">
+                  <p className="font-medium">Ngày: {label}</p>
+                  <p className="text-blue-600">
+                    Doanh thu: {formatPrice(payload[0].value as number)} VNĐ
+                  </p>
+                  <p className="text-gray-600">
+                    Đơn hàng: {payload[0].payload.orders}
+                  </p>
+                  <p className="text-gray-600">
+                    Sản phẩm: {payload[0].payload.products}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          }}
+        />
+        <Bar dataKey="revenue" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Component biểu đồ cột số đơn hàng theo ngày
+function DailyOrdersChart({ data, dataKey }: { data: ChartDataItem[]; dataKey: string }) {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+        <XAxis 
+          dataKey={dataKey}
+          angle={-45}
+          textAnchor="end"
+          height={80}
+          tick={{ fontSize: 11 }}
+          stroke="#6B7280"
+        />
+        <YAxis 
+          tick={{ fontSize: 12 }}
+          stroke="#6B7280"
+        />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (active && payload && payload.length) {
+              return (
+                <div className="bg-white p-3 border rounded-lg shadow-lg">
+                  <p className="font-medium">Ngày: {label}</p>
                   <p className="text-green-600">Đơn hàng: {payload[0].value}</p>
                   <p className="text-gray-600">
                     Sản phẩm: {payload[0].payload.products}
@@ -215,7 +358,48 @@ function TopProductsTable({
 }
 
 export default function RevenueChart() {
-  const { stats, loading, error, getMonthlyChartData } = useRealtimeRevenue();
+  const { stats, loading, error, getDailyChartData, getMonthlyChartData, getYearlyChartData } = useRealtimeRevenue();
+  const [timeRange, setTimeRange] = useState<'day' | 'month' | 'year'>('month');
+
+  // Lấy dữ liệu theo time range
+  const chartData = useMemo(() => {
+    switch (timeRange) {
+      case 'day':
+        return getDailyChartData();
+      case 'month':
+        return getMonthlyChartData();
+      case 'year':
+        return getYearlyChartData();
+      default:
+        return getMonthlyChartData();
+    }
+  }, [timeRange, getDailyChartData, getMonthlyChartData, getYearlyChartData]);
+
+  const getTimeLabel = () => {
+    switch (timeRange) {
+      case 'day':
+        return '30 ngày gần nhất';
+      case 'month':
+        return '12 tháng gần nhất';
+      case 'year':
+        return '5 năm gần nhất';
+      default:
+        return '12 tháng gần nhất';
+    }
+  };
+
+  const getDataKey = () => {
+    switch (timeRange) {
+      case 'day':
+        return 'date';
+      case 'month':
+        return 'month';
+      case 'year':
+        return 'year';
+      default:
+        return 'month';
+    }
+  };
 
   if (loading) {
     return (
@@ -240,8 +424,6 @@ export default function RevenueChart() {
       </Card>
     );
   }
-
-  const monthlyData = getMonthlyChartData();
 
   return (
     <div className="space-y-6">
@@ -322,12 +504,26 @@ export default function RevenueChart() {
 
       {/* Charts */}
       <Tabs defaultValue="revenue" className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-md">
-          <TabsTrigger value="revenue">Doanh thu</TabsTrigger>
-          <TabsTrigger value="orders">Đơn hàng</TabsTrigger>
-          <TabsTrigger value="categories">Danh mục</TabsTrigger>
-          <TabsTrigger value="products">Sản phẩm</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList className="grid grid-cols-4 w-full max-w-md">
+            <TabsTrigger value="revenue">Doanh thu</TabsTrigger>
+            <TabsTrigger value="orders">Đơn hàng</TabsTrigger>
+            <TabsTrigger value="categories">Danh mục</TabsTrigger>
+            <TabsTrigger value="products">Sản phẩm</TabsTrigger>
+          </TabsList>
+
+          {/* Time Range Filter */}
+          <Select value={timeRange} onValueChange={(value) => setTimeRange(value as 'day' | 'month' | 'year')}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Chọn khoảng thời gian" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">Theo ngày (30 ngày)</SelectItem>
+              <SelectItem value="month">Theo tháng (12 tháng)</SelectItem>
+              <SelectItem value="year">Theo năm (5 năm)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* <TabsList className="grid grid-cols-4 w-full max-w-md">
           <TabsTrigger value="day">Ngày</TabsTrigger>
@@ -339,10 +535,16 @@ export default function RevenueChart() {
         <TabsContent value="revenue">
           <Card>
             <CardHeader>
-              <CardTitle>Doanh thu theo tháng (12 tháng gần nhất)</CardTitle>
+              <CardTitle>Doanh thu ({getTimeLabel()})</CardTitle>
             </CardHeader>
             <CardContent>
-              <MonthlyRevenueChart data={monthlyData} />
+              {timeRange === 'day' ? (
+                <DailyRevenueChart data={chartData as unknown as ChartDataItem[]} dataKey={getDataKey()} />
+              ) : timeRange === 'month' ? (
+                <MonthlyRevenueBarChart data={chartData as unknown as ChartDataItem[]} dataKey={getDataKey()} />
+              ) : (
+                <MonthlyRevenueChart data={chartData as unknown as ChartDataItem[]} dataKey={getDataKey()} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -350,10 +552,16 @@ export default function RevenueChart() {
         <TabsContent value="orders">
           <Card>
             <CardHeader>
-              <CardTitle>Số đơn hàng theo tháng (12 tháng gần nhất)</CardTitle>
+              <CardTitle>Số đơn hàng ({getTimeLabel()})</CardTitle>
             </CardHeader>
             <CardContent>
-              <MonthlyOrdersChart data={monthlyData} />
+              {timeRange === 'day' ? (
+                <DailyOrdersChart data={chartData as unknown as ChartDataItem[]} dataKey={getDataKey()} />
+              ) : timeRange === 'month' ? (
+                <MonthlyOrdersChart data={chartData as unknown as ChartDataItem[]} dataKey={getDataKey()} />
+              ) : (
+                <MonthlyOrdersChart data={chartData as unknown as ChartDataItem[]} dataKey={getDataKey()} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

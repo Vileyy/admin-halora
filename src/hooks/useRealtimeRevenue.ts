@@ -99,9 +99,9 @@ export function useRealtimeRevenue() {
           }
 
           const items: RevenueItem[] = Object.entries(data).map(
-            ([id, item]: [string, Omit<RevenueItem, "id">]) => ({
+            ([id, item]) => ({
               id,
-              ...item,
+              ...(item as Omit<RevenueItem, "id">),
             })
           );
 
@@ -269,7 +269,11 @@ export function useRealtimeRevenue() {
       date.setDate(now.getDate() - i);
       const dateKey = date.toISOString().split("T")[0]; // YYYY-MM-DD format
 
-      const dayItems = revenueItems.filter((item) => item.date === dateKey);
+      // Lọc items theo ngày, tự động tạo date từ completedAt nếu thiếu
+      const dayItems = revenueItems.filter((item) => {
+        const itemDate = item.date || item.completedAt.split("T")[0];
+        return itemDate === dateKey;
+      });
       const uniqueOrders = new Set(dayItems.map((item) => item.orderId));
 
       days.push({
