@@ -48,6 +48,7 @@ function NotificationForm({
   onSubmit,
   loading,
   initialData,
+  sendingPush,
 }: {
   onSubmit: (
     data: Omit<
@@ -56,6 +57,7 @@ function NotificationForm({
     >
   ) => void;
   loading?: boolean;
+  sendingPush?: boolean;
   initialData?: Partial<
     Omit<Notification, "id" | "createdAt" | "updatedAt" | "isRead" | "readAt">
   >;
@@ -122,8 +124,14 @@ function NotificationForm({
         </div>
       </div>
 
-      <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Đang lưu..." : "Gửi thông báo"}
+      <Button
+        type="submit"
+        disabled={loading || sendingPush}
+        className="w-full"
+      >
+        {loading && !sendingPush && "💾 Đang lưu..."}
+        {sendingPush && "📤 Đang gửi push notification..."}
+        {!loading && !sendingPush && "🔔 Gửi thông báo"}
       </Button>
     </form>
   );
@@ -133,6 +141,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingPush, setSendingPush] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<string | null>(null);
   const [previewDialogOpen, setPreviewDialogOpen] = useState<string | null>(
@@ -200,19 +209,65 @@ export default function NotificationsPage() {
       setLoading(true);
       const notificationsRef = ref(database, "notifications");
       const now = new Date().toISOString();
+
+      // 1. Lưu notification vào Firebase Realtime Database
       await push(notificationsRef, {
         ...data,
         isRead: false,
         createdAt: now,
         updatedAt: now,
       });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // 2. Gửi push notification đến tất cả users
+      setSendingPush(true);
+      try {
+        const response = await fetch("/api/send-notification", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: data.title,
+            content: data.content,
+            important: data.important,
+            sendTo: "all", // Gửi đến tất cả users
+          }),
+        });
+
+        const result = await response.json();
+        setSendingPush(false);
+
+        if (response.ok && result.success) {
+          console.log("✅ Push notification sent:", result);
+          const successCount =
+            result.data?.totalSuccess || result.data?.successCount || 0;
+          toast.success(`🎉 Đã gửi thông báo đến ${successCount} thiết bị!`, {
+            duration: 5000,
+          });
+        } else {
+          console.error("❌ Failed to send push:", result);
+          toast.warning(
+            "⚠️ Thông báo đã lưu nhưng không gửi được push notification!",
+            { duration: 5000 }
+          );
+        }
+      } catch (pushError) {
+        setSendingPush(false);
+        console.error("❌ Error sending push:", pushError);
+        toast.warning(
+          "⚠️ Thông báo đã lưu nhưng có lỗi khi gửi push notification!",
+          { duration: 5000 }
+        );
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
       setLoading(false);
       setOpen(false);
-      toast.success("Gửi thông báo thành công!");
     } catch (error) {
       setLoading(false);
-      toast.error("Có lỗi xảy ra khi gửi thông báo!");
+      setSendingPush(false);
+      console.error("❌ Error:", error);
+      toast.error("❌ Có lỗi xảy ra khi gửi thông báo!");
     }
   };
 
@@ -311,6 +366,7 @@ export default function NotificationsPage() {
               <NotificationForm
                 onSubmit={handleAddNotification}
                 loading={loading}
+                sendingPush={sendingPush}
               />
             </DialogContent>
           </Dialog>
