@@ -18,6 +18,7 @@ import {
   IconTicket,
   IconUsers,
   IconPackage,
+  IconFileText,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -124,6 +125,28 @@ const data = {
       title: "Quản lý kho",
       url: "#",
       icon: IconPackage,
+    },
+    {
+      title: "Quản lý tài liệu",
+      url: "#",
+      icon: IconFileText,
+      items: [
+        {
+          title: "Chứng chỉ sản phẩm",
+          url: "#",
+          value: "certificates",
+        },
+        {
+          title: "Giấy xác nhận kiểm định",
+          url: "#",
+          value: "inspection_certificates",
+        },
+        {
+          title: "Tài liệu khác",
+          url: "#",
+          value: "other_documents",
+        },
+      ],
     },
   ],
   navClouds: [
@@ -264,6 +287,23 @@ export function AppSidebar({
     }
     if (title === "Quản lý kho") {
       onMenuClick?.("inventory");
+    }
+    if (title === "Quản lý tài liệu") {
+      if (subItem === "Chứng chỉ sản phẩm" || subValue === "certificates") {
+        onMenuClick?.("documents-certificates");
+      } else if (
+        subItem === "Giấy xác nhận kiểm định" ||
+        subValue === "inspection_certificates"
+      ) {
+        onMenuClick?.("documents-inspection");
+      } else if (
+        subItem === "Tài liệu khác" ||
+        subValue === "other_documents"
+      ) {
+        onMenuClick?.("documents-other");
+      } else {
+        onMenuClick?.("documents");
+      }
     }
     if (title === "Quản lý voucher") {
       if (

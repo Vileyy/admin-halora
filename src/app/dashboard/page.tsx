@@ -14,6 +14,8 @@ import NotificationsPage from "./notifications/page";
 import VoucherPage from "./voucher/page";
 import ReviewsPage from "./reviews/page";
 import InventoryPage from "./inventory/page";
+import DocumentsPage from "./documents/page";
+import { DocumentType, DocumentCategory } from "@/types/Document";
 
 export default function Page() {
   const [currentView, setCurrentView] = useState("products");
@@ -68,6 +70,23 @@ export default function Page() {
               <ReviewsPage />
             ) : currentView === "inventory" ? (
               <InventoryPage />
+            ) : currentView === "documents" ? (
+              <DocumentsPage />
+            ) : currentView === "documents-certificates" ? (
+              <DocumentsPage
+                type={DocumentType.CERTIFICATE}
+                category={DocumentCategory.PRODUCT_CERTIFICATE}
+              />
+            ) : currentView === "documents-inspection" ? (
+              <DocumentsPage
+                type={DocumentType.INSPECTION_CERTIFICATE}
+                category={DocumentCategory.INSPECTION_REPORT}
+              />
+            ) : currentView === "documents-other" ? (
+              <DocumentsPage
+                type={DocumentType.OTHER}
+                category={DocumentCategory.OTHER}
+              />
             ) : (
               <div>
                 <h1>404</h1>
